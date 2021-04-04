@@ -557,9 +557,9 @@ def ducos1xxh(
     hashcount = 0
     # Loop from 1 too 100*diff
     real_difficulty = (100 * int(difficulty))
-    parts = 50#random.choice([100,200,300,400])
+    parts = 100
     step = real_difficulty//parts
-    left_offset = 0
+    left_offset = difficulty
     right_offset = real_difficulty + 1
     while True:
     #for ducos1res in range(100 * int(difficulty) + 1):
@@ -591,6 +591,20 @@ def ducos1xxh(
                 return [ducos1xxres, hashcount]
         left_offset += step
         right_offset -= step
+        
+    for ducos1xxres in range(difficulty,-1,-1):
+        
+        ducos1xx = xxhash.xxh64(
+        str(lastBlockHash) + str(ducos1xxres), seed=2811)
+        ducos1xx = ducos1xx.hexdigest()
+        # Increment hash counter for hashrate calculator
+        hashcount += 1
+        # Check if result was found
+        if ducos1xx == expectedHash:
+            print()
+            print('FAR LEFT',ducos1xxres)
+            print()
+            return [ducos1xxres, hashcount]
 
 
 # Mining section for every thread
