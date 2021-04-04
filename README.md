@@ -1,4 +1,3 @@
-# DuinoCoin_android
 # DuinoCoin miner optimized for phones under  OS android
 
 To start it you can use any python ide, I suggest pydroid 3
