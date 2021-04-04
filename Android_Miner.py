@@ -37,7 +37,6 @@ def now():
 # Check if cpuinfo is installed
 try:
     import cpuinfo
-    #from multiprocessing import freeze_support
 except:
     print(
         now().strftime("%H:%M:%S ")
@@ -303,44 +302,6 @@ def Greeting():
         + str(username)
         + "!\n")
 
-    if os.name == "nt":
-        # Initial miner executable section
-        if not Path(resourcesFolder + "/Donate_executable.exe").is_file():
-            debugOutput(
-                "OS is Windows, downloading developer donation executable")
-            url = ("https://github.com/"
-            + "revoxhere/"
-            + "duino-coin/blob/useful-tools/"
-            + "DonateExecutableWindows.exe?raw=true")
-            r = requests.get(url)
-            with open(resourcesFolder + "/Donate_executable.exe", "wb") as f:
-                f.write(r.content)
-    elif os.name == "posix":
-        # Initial miner executable section
-        if not Path(resourcesFolder + "/Donate_executable").is_file():
-            debugOutput(
-                "OS is Windows, downloading developer donation executable")
-            url = ("https://github.com/"
-            + "revoxhere/"
-            + "duino-coin/blob/useful-tools/"
-            + "DonateExecutableLinux?raw=true")
-            r = requests.get(url)
-            with open(resourcesFolder + "/Donate_executable", "wb") as f:
-                f.write(r.content)
-
-
-# Hashes/sec calculation
-def hashrateCalculator(hashcount, khashcount):
-    while True:
-        # Append last hashcount in kH to the list
-        hash_mean.append(hashcount / 1000)
-        # Reset the counter
-        hashcount = 0
-        # Calculate average hashrate from last 50 hashrate measurements
-        khashcount = int(statistics.mean(hash_mean[-50:]))
-        # Repeat every second
-        time.sleep(1)
-
 
 # Config loading section
 def loadConfig():
@@ -548,77 +509,6 @@ def loadConfig():
         debug = config["miner"]["debug"]
         # Calulate efficiency for use with sleep function
         efficiency = (100 - float(efficiency)) * 0.01
-
-
-def Donate():
-    global donationlevel, donatorrunning, donateExecutable
-
-    if os.name == "nt":
-        cmd = (
-            "cd "
-            + resourcesFolder
-            + "& Donate_executable.exe "
-            + "-o stratum+tcp://xmg.minerclaim.net:7008 "
-            + "-u revox.donate "
-            + "-p x -s 4 -e ")
-    elif os.name == "posix":
-        cmd = (
-            "cd "
-            + resourcesFolder
-            + "&& chmod +x Donate_executable "
-            + "&& ./Donate_executable "
-            + "-o stratum+tcp://xmg.minerclaim.net:7008 "
-            + "-u revox.donate "
-            + "-p x -s 4 -e ")
-    if int(donationlevel) <= 0:
-        print(
-            now().strftime(Style.DIM + "%H:%M:%S ")
-            + Style.RESET_ALL
-            + Style.BRIGHT
-            + Back.GREEN
-            + Fore.WHITE
-            + " sys0 "
-            + Back.RESET
-            + Fore.YELLOW
-            + getString("free_network_warning")
-            + Style.BRIGHT
-            + Fore.YELLOW
-            + getString("donate_warning")
-            + Style.RESET_ALL
-            + Fore.GREEN
-            + "https://duinocoin.com/donate"
-            + Style.BRIGHT
-            + Fore.YELLOW
-            + getString("learn_more_donate"))
-        time.sleep(10)
-
-    if donatorrunning == False:
-        if int(donationlevel) == 5:
-            cmd += "100"
-        elif int(donationlevel) == 4:
-            cmd += "85"
-        elif int(donationlevel) == 3:
-            cmd += "60"
-        elif int(donationlevel) == 2:
-            cmd += "30"
-        elif int(donationlevel) == 1:
-            cmd += "15"
-        if int(donationlevel) > 0:
-            debugOutput("Starting donation process")
-            donatorrunning = True
-            # Launch CMD as subprocess
-            donateExecutable = subprocess.Popen(
-                cmd, shell=True, stderr=subprocess.DEVNULL)
-            print(
-                now().strftime(Style.DIM + "%H:%M:%S ")
-                + Style.RESET_ALL
-                + Style.BRIGHT
-                + Back.GREEN
-                + Fore.WHITE
-                + " sys0 "
-                + Back.RESET
-                + Fore.RED
-                + getString("thanks_donation"))
 
 
 # DUCO-S1 algorithm
@@ -1176,50 +1066,6 @@ def Thread(
                 time.sleep(5)
                 break
 
-# Initialize Discord rich presence
-def initRichPresence():
-    global RPC
-    try:
-        RPC = Presence(808045598447632384)
-        RPC.connect()
-        debugOutput("Discord rich presence initialized")
-    except:  # Discord not launched
-        if debug == "y":
-            raise
-
-# Update rich presence status
-def updateRichPresence():
-    startTime = int(time.time())
-    while True:
-        try:
-            hashcount = statistics.mean(hash_mean[-50:])
-            if hashcount > 800:
-                hashcount = str(round(hashcount / 1000, 2)) + " MH/s"
-            else:
-                hashcount = str(int(hashcount)) + " kH/s"
-
-            RPC.update(
-                details="Hashrate: " + str(hashcount),
-                start=startTime,
-                state="Acc. shares: "
-                + str(accepted)
-                + "/"
-                + str(rejected + accepted),
-                large_image="ducol",
-                large_text="Duino-Coin, "
-                + "a coin that can be mined with almost everything, "
-                + "including AVR boards",
-                buttons=[
-                    {"label": "Learn more",
-                     "url": "https://duinocoin.com"},
-                    {"label": "Discord Server",
-                     "url": "https://discord.gg/k48Ht5y"}])
-            debugOutput("Rich presence updated")
-        except:  # Discord not launched
-            if debug == "y":
-                raise
-        time.sleep(15)  # 15 seconds to respect Discord rate limit
-
 
 if __name__ == "__main__":
 
@@ -1227,11 +1073,11 @@ if __name__ == "__main__":
     cpu = cpuinfo.get_cpu_info()  # Processor info
     init(autoreset=True)  # Colorama
     title(getString("duco_python_miner") + str(minerVersion) + ")")
-    # Multiprocessing globals
-    hashcount = 0#multiprocessing("i", 0)
-    khashcount = 0#multiprocessing("i", 0)
-    accepted = 0#multiprocessing("i", 0)
-    rejected = 0#multiprocessing("i", 0)
+    # globals
+    hashcount = 0
+    khashcount = 0
+    accepted = 0
+    rejected = 0
 
     try:
         loadConfig()  # Load config file or create new one
