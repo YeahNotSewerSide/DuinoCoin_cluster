@@ -23,6 +23,7 @@ import platform
 from pathlib import Path
 from signal import signal, SIGINT
 import random
+import traceback
 
 # Install pip package automatically
 def install(package):
@@ -96,7 +97,7 @@ except:
 
 # Global variables
 minerVersion = "2.4"  # Version number
-timeout = 15  # Socket timeout
+timeout = 60  # Socket timeout
 resourcesFolder = "PCMiner_" + str(minerVersion) + "_resources"
 hash_mean = []
 donatorrunning = False
@@ -557,9 +558,9 @@ def ducos1xxh(
     hashcount = 0
     # Loop from 1 too 100*diff
     real_difficulty = (100 * int(difficulty))
-    parts = 100
+    parts = 50
     step = real_difficulty//parts
-    left_offset = difficulty
+    left_offset = difficulty*2
     right_offset = real_difficulty + 1
     while True:
     #for ducos1res in range(100 * int(difficulty) + 1):
@@ -592,7 +593,7 @@ def ducos1xxh(
         left_offset += step
         right_offset -= step
         
-    for ducos1xxres in range(difficulty,-1,-1):
+    for ducos1xxres in range(difficulty*2,-1,-1):
         
         ducos1xx = xxhash.xxh64(
         str(lastBlockHash) + str(ducos1xxres), seed=2811)
@@ -780,6 +781,7 @@ def Thread(
                             encoding="utf8"))
 
                     job = soc.recv(128).decode().rstrip("\n")
+                    #print(job)
                     job = job.split(",")  # Get work from pool
                     debugOutput("Received: " + str(job))
 
@@ -1059,7 +1061,7 @@ def Thread(
                                 + "ms")
                             break  # Repeat
                     break
-            except:
+            except Exception as e:
                 print(
                     now().strftime(Style.DIM + "%H:%M:%S ")
                     + Style.RESET_ALL
