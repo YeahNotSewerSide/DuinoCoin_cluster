@@ -125,6 +125,7 @@ def receive_new_job():
             data_bytes = bytes(data,'ascii')
             data_bytes = client_socket.send(data_bytes)
             calculation_result = None
+        time.sleep(2)
 
 
 
