@@ -6,7 +6,15 @@ in folder PCMiner_2.4_resources in file Miner_config.cfg write your username fro
 
 and I will suggest you NOT to change anything else in that file.
 
-before you start program dowload some python libraries:
+File Android_Miner.py - is a miner for android, that file along can mine you some coins.
+
+File cluster_server.py - is a server for your cluster, it must have folder PCMiner_2.4_resources next to it(default port is 9090)
+
+File Android_cluster.py - is a miner for cluster, don't forget to change server address, it doesn't need folder PCMiner_2.4_resources
+
+
+
+before you start program download some python libraries:
 
   py-cpuinfo
 
