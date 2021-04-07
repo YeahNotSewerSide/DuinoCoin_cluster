@@ -12,7 +12,8 @@ File cluster_server.py - is a server for your cluster, it must have folder PCMin
 
 File Android_cluster.py - is a miner for cluster, don't forget to change server address, it doesn't need folder PCMiner_2.4_resources
 
-
+ToDo:
+Rewrite cluster
 
 before you start program download some python libraries:
 
