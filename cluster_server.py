@@ -285,7 +285,7 @@ def job_done(dispatcher,event):
     logger.info('job done packet')
     if (event.result == 'None' \
         or event.result == None)\
-        and (JOB_MAX!= None and JOB_START!=None and JOB_MAX>=JOB_START):
+        and JOB_START!=JOB_END:
         logger.info('Empty block')
         device = devices.get(event.address,None)
         if device == None:
@@ -336,7 +336,7 @@ def job_done(dispatcher,event):
         if increase:
             JOB_START = JOB_END
             if JOB_MAX - JOB_END<JOB_PART:
-                JOB_END = JOB_MAX
+                JOB_END = JOB_MAX+1
             else:
                 JOB_END += JOB_PART
         event.callback.sendto(data.encode('ascii'),event.address)
@@ -345,7 +345,6 @@ def job_done(dispatcher,event):
         logger.info('accepted result')
         if event.result == None or event.result == 'None':
             logger.debug('Giving up on that block')
-            return
         else:
             send_results(event.result)
         data = b'{"t":"e","event":"stop_job","message":"terminating job"}'
