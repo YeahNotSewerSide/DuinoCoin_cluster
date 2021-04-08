@@ -41,51 +41,63 @@ def ducos1xxh(
     global END_JOB,calculation_result
 
     hashcount = 0
-    # Loop from 1 too 100*diff
-    real_difficulty = end
-    parts = 1
-    step = (real_difficulty-start)//parts#difficulty
-    left_offset = start
-    right_offset = real_difficulty + 1
-    while not END_JOB and left_offset < end:
-    #for ducos1res in range(100 * int(difficulty) + 1):
-        for ducos1xxres in range(left_offset,left_offset+step+1):
-            if END_JOB:
-                logger.info('JOB TERMINATED')
-                calculation_result = None
-                return None
-            ducos1xx = xxhash.xxh64(
-            str(lastBlockHash) + str(ducos1xxres), seed=2811)
-            ducos1xx = ducos1xx.hexdigest()
-            # Increment hash counter for hashrate calculator
-            hashcount += 1
-            # Check if result was found
-            if ducos1xx == expectedHash:
-                END_JOB = True
-                logger.debug('LEFT '+str(ducos1xxres))
-                calculation_result = [ducos1xxres, hashcount]
-                return None
+    for ducos1xxres in range(int(start),int(end)):
+        if END_JOB:
+            logger.info('JOB TERMINATED')
+            calculation_result = None
+            return None
+        ducos1xx = xxhash.xxh64(
+        str(lastBlockHash) + str(ducos1xxres), seed=2811)
+        ducos1xx = ducos1xx.hexdigest()
+        # Increment hash counter for hashrate calculator
+        hashcount += 1
+        # Check if result was found
+        if ducos1xx == expectedHash:
+            END_JOB = True
+            logger.debug('LEFT '+str(ducos1xxres))
+            calculation_result = [ducos1xxres, hashcount]
+            return None
 
-        for ducos1xxres in range(right_offset,right_offset-step-1,-1):
-            if END_JOB:
-                logger.info('JOB TERMINATED')
-                calculation_result = None
-                return None
-            # Generate hash
-            ducos1xx = xxhash.xxh64(
-            str(lastBlockHash) + str(ducos1xxres), seed=2811)
-            ducos1xx = ducos1xx.hexdigest()
-            # Increment hash counter for hashrate calculator
-            hashcount += 1
-            # Check if result was found
-            if ducos1xx == expectedHash:
-                END_JOB = True
-                logger.debug('RIGHT '+str(ducos1xxres))
-                calculation_result = [ducos1xxres, hashcount]
-                return None
 
-        left_offset += step
-        right_offset -= step
+    #while not END_JOB and left_offset < end:
+    ##for ducos1res in range(100 * int(difficulty) + 1):
+    #    for ducos1xxres in range(left_offset,left_offset+step+1):
+    #        if END_JOB:
+    #            logger.info('JOB TERMINATED')
+    #            calculation_result = None
+    #            return None
+    #        ducos1xx = xxhash.xxh64(
+    #        str(lastBlockHash) + str(ducos1xxres), seed=2811)
+    #        ducos1xx = ducos1xx.hexdigest()
+    #        # Increment hash counter for hashrate calculator
+    #        hashcount += 1
+    #        # Check if result was found
+    #        if ducos1xx == expectedHash:
+    #            END_JOB = True
+    #            logger.debug('LEFT '+str(ducos1xxres))
+    #            calculation_result = [ducos1xxres, hashcount]
+    #            return None
+
+    #    for ducos1xxres in range(right_offset,right_offset-step-1,-1):
+    #        if END_JOB:
+    #            logger.info('JOB TERMINATED')
+    #            calculation_result = None
+    #            return None
+    #        # Generate hash
+    #        ducos1xx = xxhash.xxh64(
+    #        str(lastBlockHash) + str(ducos1xxres), seed=2811)
+    #        ducos1xx = ducos1xx.hexdigest()
+    #        # Increment hash counter for hashrate calculator
+    #        hashcount += 1
+    #        # Check if result was found
+    #        if ducos1xx == expectedHash:
+    #            END_JOB = True
+    #            logger.debug('RIGHT '+str(ducos1xxres))
+    #            calculation_result = [ducos1xxres, hashcount]
+    #            return None
+
+    #    left_offset += step
+    #    right_offset -= step
     logger.info('Empty block')
     END_JOB = True
     calculation_result = 'None'
@@ -311,7 +323,7 @@ def client():
             if calculation_thread != None:
                 send_result()
 
-        time.sleep(1)
+        time.sleep(2)
 
 
 

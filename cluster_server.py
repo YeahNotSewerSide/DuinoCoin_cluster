@@ -335,13 +335,17 @@ def job_done(dispatcher,event):
         device.job_started([job[0],job[1],job_start,job_end])
         if increase:
             JOB_START = JOB_END
-            JOB_END += JOB_PART
+            if JOB_MAX - JOB_END<JOB_PART:
+                JOB_END = JOB_MAX
+            else:
+                JOB_END += JOB_PART
         event.callback.sendto(data.encode('ascii'),event.address)
     
     else:
         logger.info('accepted result')
         if event.result == None or event.result == 'None':
             logger.debug('Giving up on that block')
+            return
         else:
             send_results(event.result)
         data = b'{"t":"e","event":"stop_job","message":"terminating job"}'
@@ -368,6 +372,7 @@ def request_job(dispatcher,event):
     global JOB_END
     global JOB_PART
     global JOB_START_SECRET
+    global JOB_MAX
     global algorithm
     global username
     global requestedDiff
@@ -411,9 +416,11 @@ def request_job(dispatcher,event):
             connect_to_master()
             continue
         logger.info('job accepted')
+        logger.info('Difficulty: '+str(job[2]))
         logger.debug(str(job))
         JOB = job[:2]
         real_difficulty = (100*int(job[2]))
+        JOB_MAX = real_difficulty
         JOB_START = 0
         JOB_PART = ((real_difficulty-JOB_START)//MIN_PARTS)
         JOB_END = JOB_PART
