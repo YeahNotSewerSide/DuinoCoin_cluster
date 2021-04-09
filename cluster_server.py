@@ -40,8 +40,8 @@ serveripfile = ("https://raw.githubusercontent.com/"
 masterServer_address = ''
 masterServer_port = 0
 
-MIN_PARTS = 5 
-INC_COEF = 5 #len(devices) + INC_COEF
+MIN_PARTS = 5
+INC_COEF = 0
 
 DISABLE_LOGGING = True
 
@@ -93,7 +93,6 @@ class Device:
         self.name = name
         self.last_updated = time.time()
         self.busy = False
-        self.address = address
 
     def is_alive(self):
         return (time.time()-self.last_updated)<time_for_device
@@ -206,19 +205,19 @@ HASH_COUNTER = 0
 
 
 class Job:
-    def __init__(self,devices = []):
-        self.devices = devices
+    def __init__(self,device = None):
+        self.device = device
         self.done = False
     def set_device(self,device):
-        self.devices.append(device)
-    def get_devices(self):
-        return self.devices
+        self.device = device
+    def get_device(self):
+        return self.device
     def is_done(self):
         return self.done
     def set_done(self):
         self.done = True
     def is_claimed(self):
-        return not (len(self.devices) == 0)
+        return self.device == None
 
 
 
@@ -344,10 +343,6 @@ def job_done(dispatcher,event):
         else:
             try:
                 JOBS_TO_PROCESS[recieved_start_end].set_done()
-                data = b'{"t":"e","event":"stop_job","message":"terminating job"}'
-                logger.info('Stopping accepted job')
-                for device in JOBS_TO_PROCESS[recieved_start_end].get_devices():
-                    event.callback.sendto(data,device.address)
             except:
                 logger.error('CANT FIND BLOCK: '+str(recieved_start_end))
 
