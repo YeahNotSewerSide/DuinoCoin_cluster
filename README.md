@@ -10,17 +10,17 @@ File Android_Miner.py - is a miner for android, that file along can mine you som
 
 File cluster_server.py - is a server for your cluster, it must have folder PCMiner_2.4_resources next to it(default port is 9090)
 
-File Android_cluster.py - is a miner for cluster, don't forget to change server address, it doesn't need folder PCMiner_2.4_resources
+File Android_cluster.py - is a miner for cluster, don't forget to change server address and worker name right in the script. It doesn't need folder PCMiner_2.4_resources
 
 before you start program download some python libraries:
 
-  py-cpuinfo
+  py-cpuinfo (only Android_Miner.py)
 
-  colorama
+  colorama (only Android_Miner.py)
 
   requests
   
-  pypresence
+  pypresence (only Android_Miner.py)
   
   xxhash
   
