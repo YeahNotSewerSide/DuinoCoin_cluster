@@ -29,7 +29,7 @@ masterServer_address = ''
 masterServer_port = 0
 
 MIN_PARTS = 5
-INC_COEF = 0 # 0 -more stable
+INC_COEF = 0
 
 
 
@@ -82,7 +82,6 @@ time_for_device = 90
 class Device:
     def __init__(self,name,address):
         self.name = name
-        self.last_job = None
         self.last_updated = time.time()
         self.busy = False
 
@@ -93,11 +92,9 @@ class Device:
     def isbusy(self):
         return self.busy
     def job_stopped(self):
-        self.last_job = None
         self.busy = False
-    def job_started(self,job):
+    def job_started(self):
         self.busy = True
-        self.last_job = job
 
     def __str__(self):
         return self.name+' '+str(self.address)
@@ -163,7 +160,8 @@ def register(dispatcher,event):
                              event.address)
     
     event.dict_representation['event'] = 'job_done'
-    event.dict_representation['result'] = None
+    event.dict_representation['result'] = [None,0]
+    event.dict_representation['start_end'] = [0,0]
     dispatcher.add_to_queue(event)
 
     return None
@@ -192,11 +190,24 @@ def ping(dispatcher,event):
     return None
 
 JOB = None
-JOB_START = None
-JOB_END = None
-JOB_PART = None
-JOB_MAX = None
 JOB_START_SECRET = 'ejnejkfnhiuhwefiy87usdf'
+JOBS_TO_PROCESS = {}
+HASH_COUNTER = 0
+
+
+class Job:
+    def __init__(self,device = None):
+        self.device = device
+        self.done = False
+    def set_device(self,device):
+        self.device = device
+    def get_device(self):
+        return self.device
+    def isdone(self):
+        return self.done
+    def set_done(self):
+        self.done = True
+
 
 
 def job_start(dispatcher,event):
@@ -207,46 +218,49 @@ def job_start(dispatcher,event):
              'callback':socket}
     '''
     global JOB
-    global JOB_START
-    global JOB_END
-    global JOB_PART
     global JOB_START_SECRET
     global algorithm
-    global JOB_MAX
+    global JOBS_TO_PROCESS
+
+
     
     logger.info('Job is starting')
     if event.secret != JOB_START_SECRET:
         logger.warning('bad secret')
         return
 
-    for addr,device in devices.items():
-        if device.isbusy():
-            continue
-        data = json.dumps({'t':'e',
-                        'event':'start_job',
-                        'lastBlockHash':JOB[0],
-                        'expectedHash':JOB[1],
-                        'start':JOB_START,
-                        'end':JOB_END,
-                        'algorithm':algorithm})
-        device.job_started([JOB[0],JOB[1],JOB_START,JOB_END])
-        JOB_START = JOB_END
-        JOB_END += JOB_PART
-        event.callback.sendto(data.encode('ascii'),addr)
+
+    for start_end,job in JOBS_TO_PROCESS.items():
+        for addr,device in devices.items():
+            if device.isbusy():
+                continue
+            data = json.dumps({'t':'e',
+                            'event':'start_job',
+                            'lastBlockHash':JOB[0],
+                            'expectedHash':JOB[1],
+                            'start':start_end[0],
+                            'end':start_end[1],
+                            'algorithm':algorithm})
+            device.job_started()
+            event.callback.sendto(data.encode('ascii'),addr)
+            job.set_device(device)
+            
 
 def send_results(result):
     global algorithm
     global minerVersion
     global rigIdentifier
+    global HASH_COUNTER
 
     logger.info('Sending results')
     logger.debug(str(result))
+    logger.info('Hashes were checked: '+str(HASH_COUNTER))
     while True:
         try:
             master_server_socket.send(bytes(
                                     str(result[0])
                                     + ","
-                                    + str(result[1])
+                                    + str(HASH_COUNTER)
                                     + ","
                                     + "Official PC Miner ("
                                     + str(algorithm)
@@ -266,25 +280,25 @@ def send_results(result):
         logger.info('Hash blocked')
     else:
         logger.info('Hash rejected')
+    HASH_COUNTER = 0
 
 def job_done(dispatcher,event):
     '''
     event = {'t':'e',
             'event':'job_done',
-            'result':[1,1] | 'None',
+            'result':[1,1] | ['None',1],
+            'start_end':[1,1],
             'address':('127.0.0.1',1234),
             'callback':socket}
     '''
     global JOB
-    global JOB_START
-    global JOB_END
-    global JOB_PART
     global algorithm
-    global JOB_MAX
+    global JOBS_TO_PROCESS
+    global HASH_COUNTER
 
     logger.info('job done packet')
-    if (event.result == 'None' \
-        or event.result == None):
+    if (event.result[0] == 'None' \
+        or event.result[0] == None):
         logger.info('Empty block')
         device = devices.get(event.address,None)
         if device == None:
@@ -309,76 +323,47 @@ def job_done(dispatcher,event):
             event.callback.sendto(data,event.address)
             return
 
-        job = JOB
-        job_start = JOB_START
-        job_end = JOB_END
+        HASH_COUNTER += event.result[1]
 
-
-        increase = True
-
-        if JOB_START == JOB_MAX:
-            increase = False
-            for addr,device in devices.items():
-                if device.isbusy() and addr != event.address:
-                    increase = True
-                    job = device.last_job[:2]
-                    job_start,job_end = device.last_job[2:]
-                    break
-            if not increase:
-                logger.debug('Giving up on that block')
-                data = b'{"t":"e","event":"stop_job","message":"terminating job"}'
-                logger.debug('stopping workers')
-                for addr,device in devices.items():
-                    device.job_stopped()
-                    event.callback.sendto(data,addr)
-                JOB = None
-                JOB_START = None
-                JOB_END = None
-                JOB_PART = None
-                JOB_MAX = None
-                return
-                
+        recieved_start_end = tuple(event.start_end)
+        if recieved_start_end[0] == 0 and recieved_start_end[1] == 0:
+            logger.debug('redirect from register')
         else:
-            for addr,device in devices.items():
-                if device.busy and not device.is_alive():
-                    increase = False
-                    job = device.last_job[:2]
-                    job_start,job_end = device.last_job[2:]
-                    device.job_stopped()
-                    break
+            try:
+                JOBS_TO_PROCESS[recieved_start_end].set_done()
+            except:
+                logger.error('CANT FIND BLOCK: '+str(recieved_start_end))
+
+        job_to_send = None
+        for start_end,job in JOBS_TO_PROCESS.items():
+            if not job.isdone():
+                job.set_device(device)
+                job_to_send = start_end
+                break
+
 
         data = json.dumps({'t':'e',
                         'event':'start_job',
-                        'lastBlockHash':job[0],
-                        'expectedHash':job[1],
-                        'start':job_start,
-                        'end':job_end,
+                        'lastBlockHash':JOB[0],
+                        'expectedHash':JOB[1],
+                        'start':job_to_send[0],
+                        'end':job_to_send[1],
                         'algorithm':algorithm})
-        device.job_started([job[0],job[1],job_start,job_end])
-        if increase:
-            JOB_START = JOB_END
-            if JOB_MAX - JOB_END<JOB_PART:
-                JOB_END = JOB_MAX+1
-            else:
-                JOB_END += JOB_PART+1
+        device.job_started()
+
         event.callback.sendto(data.encode('ascii'),event.address)
     
     else:
         logger.info('accepted result')
-        #if event.result == None or event.result == 'None':
-        #    logger.debug('Giving up on that block')
-        #else:
+        HASH_COUNTER += event.result[1]
         send_results(event.result)
+        JOBS_TO_PROCESS = {}
         data = b'{"t":"e","event":"stop_job","message":"terminating job"}'
         logger.debug('stopping workers')
         for addr,device in devices.items():
             device.job_stopped()
             event.callback.sendto(data,addr)
         JOB = None
-        JOB_START = None
-        JOB_END = None
-        JOB_PART = None
-        JOB_MAX = None
 
 
 def request_job(dispatcher,event):
@@ -389,15 +374,12 @@ def request_job(dispatcher,event):
              'parts':10}
     '''
     global JOB
-    global JOB_START
-    global JOB_END
-    global JOB_PART
     global JOB_START_SECRET
-    global JOB_MAX
     global algorithm
     global username
     global requestedDiff
     global master_server_socket
+    global JOBS_TO_PROCESS
 
     logger.info('requesting job')
     if event.secret != JOB_START_SECRET:
@@ -439,12 +421,23 @@ def request_job(dispatcher,event):
         logger.info('job accepted')
         logger.info('Difficulty: '+str(job[2]))
         logger.debug(str(job))
+
+        JOBS_TO_PROCESS = {}
+
         JOB = job[:2]
         real_difficulty = (100*int(job[2]))
-        JOB_MAX = real_difficulty
-        JOB_START = 0
-        JOB_PART = ((real_difficulty-JOB_START)//MIN_PARTS)
-        JOB_END = JOB_PART
+        job_part = (real_difficulty//MIN_PARTS)
+        start = 0
+        end = job_part
+        while start<real_difficulty:
+            job_object = Job()
+            JOBS_TO_PROCESS[(start,end)] = job_object
+            start = end
+            if real_difficulty<end+job_part:
+                end = real_difficulty+1
+            else:
+                end += job_part 
+
         break
 
 

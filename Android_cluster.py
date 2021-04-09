@@ -30,8 +30,10 @@ client_socket.setblocking(False)
 
 END_JOB = False
 
-calculation_result = None
+calculation_result = [None,0,0,0]
 calculation_thread = None
+
+
 
 def ducos1xxh(
         lastBlockHash,
@@ -44,7 +46,7 @@ def ducos1xxh(
     for ducos1xxres in range(int(start),int(end)):
         if END_JOB:
             logger.info('JOB TERMINATED')
-            calculation_result = None
+            calculation_result = [None,hashcount,start,end]
             return None
         ducos1xx = xxhash.xxh64(
         str(lastBlockHash) + str(ducos1xxres), seed=2811)
@@ -55,7 +57,7 @@ def ducos1xxh(
         if ducos1xx == expectedHash:
             END_JOB = True
             logger.debug('LEFT '+str(ducos1xxres))
-            calculation_result = [ducos1xxres, hashcount]
+            calculation_result = [ducos1xxres, hashcount,start,end]
             return None
 
 
@@ -100,7 +102,7 @@ def ducos1xxh(
     #    right_offset -= step
     logger.info('Empty block')
     END_JOB = True
-    calculation_result = 'None'
+    calculation_result = [None,hashcount,start,end]
         
 
 def ping():
@@ -120,7 +122,7 @@ def register(dispatcher,event):
 
     logger.info('Registering worker')
     END_JOB = True
-    calculation_result = None
+    calculation_result = [None,0,0,0]
     message = {'t':'e',
             'event':'register',
             'name':WORKER_NAME}
@@ -161,7 +163,7 @@ def start_job(dispatcher,event):
         return None
 
     END_JOB = False
-    calculation_result = None
+    calculation_result = [None,0,0,0]
 
     calculation_thread = threading.Thread(target=func,args=arguments,name='calculation thread')
     calculation_thread.start()
@@ -190,7 +192,7 @@ def stop_job(dispatcher,event):
         pass
 
     END_JOB = False
-    calculation_result = None
+    calculation_result = [None,0,0,0]
     calculation_thread = None
 
     data = json.dumps({'t':'a',
@@ -210,11 +212,12 @@ def send_result():
 
     data = json.dumps({'t':'e',
                         'event':'job_done',
-                        'result':calculation_result})
+                        'result':calculation_result[:2],
+                        'start_end':calculation_result[2:]})
 
     client_socket.sendto(data.encode('ascii'),CLUSTER_SERVER_ADDRESS)
 
-    calculation_result = None
+    calculation_result = [None,0,0,0]
     calculation_thread = None
     END_JOB = False
     
