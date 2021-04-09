@@ -284,8 +284,7 @@ def job_done(dispatcher,event):
 
     logger.info('job done packet')
     if (event.result == 'None' \
-        or event.result == None)\
-        and JOB_START!=JOB_END:
+        or event.result == None):
         logger.info('Empty block')
         device = devices.get(event.address,None)
         if device == None:
@@ -317,13 +316,36 @@ def job_done(dispatcher,event):
 
         increase = True
 
-        for addr,device in devices.items():
-            if device.busy and not device.is_alive():
-                increase = False
-                job = device.last_job[:2]
-                job_start,job_end = device.last_job[2:]
-                device.job_stopped()
-                break
+        if JOB_START == JOB_MAX:
+            increase = False
+            for addr,device in devices.items():
+                if device.isbusy() and addr != event.address:
+                    increase = True
+                    job = device.last_job[:2]
+                    job_start,job_end = device.last_job[2:]
+                    break
+            if not increase:
+                logger.debug('Giving up on that block')
+                data = b'{"t":"e","event":"stop_job","message":"terminating job"}'
+                logger.debug('stopping workers')
+                for addr,device in devices.items():
+                    device.job_stopped()
+                    event.callback.sendto(data,addr)
+                JOB = None
+                JOB_START = None
+                JOB_END = None
+                JOB_PART = None
+                JOB_MAX = None
+                return
+                
+        else:
+            for addr,device in devices.items():
+                if device.busy and not device.is_alive():
+                    increase = False
+                    job = device.last_job[:2]
+                    job_start,job_end = device.last_job[2:]
+                    device.job_stopped()
+                    break
 
         data = json.dumps({'t':'e',
                         'event':'start_job',
@@ -343,10 +365,10 @@ def job_done(dispatcher,event):
     
     else:
         logger.info('accepted result')
-        if event.result == None or event.result == 'None':
-            logger.debug('Giving up on that block')
-        else:
-            send_results(event.result)
+        #if event.result == None or event.result == 'None':
+        #    logger.debug('Giving up on that block')
+        #else:
+        send_results(event.result)
         data = b'{"t":"e","event":"stop_job","message":"terminating job"}'
         logger.debug('stopping workers')
         for addr,device in devices.items():
