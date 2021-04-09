@@ -203,10 +203,12 @@ class Job:
         self.device = device
     def get_device(self):
         return self.device
-    def isdone(self):
+    def is_done(self):
         return self.done
     def set_done(self):
         self.done = True
+    def is_claimed(self):
+        return self.device == None
 
 
 
@@ -244,6 +246,7 @@ def job_start(dispatcher,event):
             device.job_started()
             event.callback.sendto(data.encode('ascii'),addr)
             job.set_device(device)
+            break
             
 
 def send_results(result):
@@ -335,11 +338,19 @@ def job_done(dispatcher,event):
                 logger.error('CANT FIND BLOCK: '+str(recieved_start_end))
 
         job_to_send = None
+        # searching for unclaimed jobs
         for start_end,job in JOBS_TO_PROCESS.items():
-            if not job.isdone():
+            if not job.is_claimed() and not job.is_done():
                 job.set_device(device)
                 job_to_send = start_end
                 break
+        # searching for claimed undone jobs
+        if job_to_send == None:
+            for start_end,job in JOBS_TO_PROCESS.items():
+                if not job.is_done():
+                    job.set_device(device)
+                    job_to_send = start_end
+                    break
 
 
         data = json.dumps({'t':'e',
