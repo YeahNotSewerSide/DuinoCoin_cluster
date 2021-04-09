@@ -14,9 +14,9 @@ File Android_cluster.py - is a miner for cluster, don't forget to change server 
 
 # ToDo:
 
-Optimize job dispatching/ending
+Optimize job dispatching/ending, implement competing between devices doing same job
 
-before you start program download some python libraries:
+# before you start program download some python libraries:
 
   py-cpuinfo (only Android_Miner.py)
 
