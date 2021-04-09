@@ -33,7 +33,32 @@ END_JOB = False
 calculation_result = [None,0,0,0]
 calculation_thread = None
 
-
+def ducos1(
+        lastBlockHash,
+        expectedHash,
+        start,
+        end):
+    global END_JOB,calculation_result
+    hashcount = 0
+    for ducos1xxres in range(int(start),int(end)):
+        if END_JOB:
+            logger.info('JOB TERMINATED')
+            calculation_result = [None,hashcount,start,end]
+            return None
+        ducos1xx = hashlib.sha1(
+                (str(lastBlockHash) + str(ducos1xxres)).encode('utf-8'))
+        ducos1xx = ducos1xx.hexdigest()
+        # Increment hash counter for hashrate calculator
+        hashcount += 1
+        # Check if result was found
+        if ducos1xx == expectedHash:
+            END_JOB = True
+            logger.debug('LEFT '+str(ducos1xxres))
+            calculation_result = [ducos1xxres, hashcount,start,end]
+            return None
+    logger.info('Empty block')
+    END_JOB = True
+    calculation_result = [None,hashcount,start,end]
 
 def ducos1xxh(
         lastBlockHash,
@@ -41,7 +66,6 @@ def ducos1xxh(
         start,
         end):
     global END_JOB,calculation_result
-
     hashcount = 0
     for ducos1xxres in range(int(start),int(end)):
         if END_JOB:
@@ -59,47 +83,6 @@ def ducos1xxh(
             logger.debug('LEFT '+str(ducos1xxres))
             calculation_result = [ducos1xxres, hashcount,start,end]
             return None
-
-
-    #while not END_JOB and left_offset < end:
-    ##for ducos1res in range(100 * int(difficulty) + 1):
-    #    for ducos1xxres in range(left_offset,left_offset+step+1):
-    #        if END_JOB:
-    #            logger.info('JOB TERMINATED')
-    #            calculation_result = None
-    #            return None
-    #        ducos1xx = xxhash.xxh64(
-    #        str(lastBlockHash) + str(ducos1xxres), seed=2811)
-    #        ducos1xx = ducos1xx.hexdigest()
-    #        # Increment hash counter for hashrate calculator
-    #        hashcount += 1
-    #        # Check if result was found
-    #        if ducos1xx == expectedHash:
-    #            END_JOB = True
-    #            logger.debug('LEFT '+str(ducos1xxres))
-    #            calculation_result = [ducos1xxres, hashcount]
-    #            return None
-
-    #    for ducos1xxres in range(right_offset,right_offset-step-1,-1):
-    #        if END_JOB:
-    #            logger.info('JOB TERMINATED')
-    #            calculation_result = None
-    #            return None
-    #        # Generate hash
-    #        ducos1xx = xxhash.xxh64(
-    #        str(lastBlockHash) + str(ducos1xxres), seed=2811)
-    #        ducos1xx = ducos1xx.hexdigest()
-    #        # Increment hash counter for hashrate calculator
-    #        hashcount += 1
-    #        # Check if result was found
-    #        if ducos1xx == expectedHash:
-    #            END_JOB = True
-    #            logger.debug('RIGHT '+str(ducos1xxres))
-    #            calculation_result = [ducos1xxres, hashcount]
-    #            return None
-
-    #    left_offset += step
-    #    right_offset -= step
     logger.info('Empty block')
     END_JOB = True
     calculation_result = [None,hashcount,start,end]
@@ -155,6 +138,9 @@ def start_job(dispatcher,event):
     if event.algorithm == 'XXHASH':
         logger.info('Using XXHASH algorithm')
         func = ducos1xxh
+    elif event.algorithm == 'DUCO-S1':
+        logger.info('Using DUCO-S1 algorithm')
+        func = ducos1
     else:
         logger.warning('Algorithm not implemented')
         logger.debug(str(event.algorithm))
