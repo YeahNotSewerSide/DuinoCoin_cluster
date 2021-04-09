@@ -9,6 +9,18 @@ import select
 import traceback
 import logging
 
+# https://github.com/DoctorEenot/DuinoCoin_android_cluster
+'''
+For the simpler usage that miner uses the same config directory as official PC miner:
+
+PCMiner_2.4_resources
+
+So in that folder (PCMiner_2.4_resources) you must have config file "Miner_config.cfg"
+
+For more details go to projects page:
+https://github.com/DoctorEenot/DuinoCoin_android_cluster
+'''
+
 minerVersion = "2.4"  # Version number
 resourcesFolder = "PCMiner_" + str(minerVersion) + "_resources"
 username = ''
@@ -31,21 +43,22 @@ masterServer_port = 0
 MIN_PARTS = 5
 INC_COEF = 0
 
-
+DISABLE_LOGGING = True
 
 logger = logging.getLogger('Cluster_Server')
 logger.setLevel(logging.DEBUG)
-fh = logging.FileHandler('Cluster_Server.log')
-fh.setLevel(logging.DEBUG)
 # create console handler with a higher log level
 ch = logging.StreamHandler()
 ch.setLevel(logging.INFO)
 # create formatter and add it to the handlers
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-fh.setFormatter(formatter)
+if not DISABLE_LOGGING:
+    fh = logging.FileHandler('Cluster_Server.log')
+    fh.setLevel(logging.DEBUG)
+    fh.setFormatter(formatter)
+    logger.addHandler(fh)
 ch.setFormatter(formatter)
 # add the handlers to the logger
-logger.addHandler(fh)
 logger.addHandler(ch)
 
 
@@ -66,13 +79,10 @@ def loadConfig():
     logger.info('Loading config')
     config.read(resourcesFolder + "/Miner_config.cfg")
     username = config["miner"]["username"]
-    efficiency = config["miner"]["efficiency"]
     threadcount = config["miner"]["threads"]
     requestedDiff = config["miner"]["requestedDiff"]
-    donationlevel = config["miner"]["donate"]
     algorithm = config["miner"]["algorithm"]
     rigIdentifier = config["miner"]["identifier"]
-    debug = config["miner"]["debug"]
     # Calulate efficiency for use with sleep function
     efficiency = (100 - float(efficiency)) * 0.01
 
@@ -265,7 +275,7 @@ def send_results(result):
                                     + ","
                                     + str(HASH_COUNTER)
                                     + ","
-                                    + "Official PC Miner ("
+                                    + "YeahNot Cluster ("
                                     + str(algorithm)
                                     + ") v" 
                                     + str(minerVersion)
