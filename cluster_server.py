@@ -360,7 +360,7 @@ def job_done(dispatcher,event):
             if JOB_MAX - JOB_END<JOB_PART:
                 JOB_END = JOB_MAX+1
             else:
-                JOB_END += JOB_PART
+                JOB_END += JOB_PART+1
         event.callback.sendto(data.encode('ascii'),event.address)
     
     else:
