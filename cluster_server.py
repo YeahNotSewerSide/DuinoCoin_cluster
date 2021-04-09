@@ -29,7 +29,7 @@ masterServer_address = ''
 masterServer_port = 0
 
 MIN_PARTS = 5
-INC_COEF = 3
+INC_COEF = 0 # 0 -more stable
 
 
 
