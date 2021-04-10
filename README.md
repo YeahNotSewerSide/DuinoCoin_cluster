@@ -34,6 +34,8 @@ IS IT SAFE TO USE OVER THE INTERNET? - Not right now, it has some vulnerabilitie
 
 I don't have a lot of storage memmory on my phone, will Android_cluster.py store something? - Nope it wouldn't.
 
+I want to change difficulty for cluster, what do I do? - "./PCMiner_2.4_resources/Miner_config.cfg" in that file change "requesteddiff" = NET|MEDIUM|LOW (NET is the hardest difficulty, at least that's what I have read in official PC miner)
+
 # before you start program download some python libraries:
 
   py-cpuinfo (only Android_Miner.py)
