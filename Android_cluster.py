@@ -30,7 +30,7 @@ client_socket.setblocking(False)
 
 END_JOB = False
 
-calculation_result = [None,0,0,0]
+calculation_result = [None,0,0,0,None]
 calculation_thread = None
 
 EXPECTED_HASH = None
@@ -334,7 +334,7 @@ def client():
                 send_result()
                 event_dispatcher.clear_queue()
 
-        time.sleep(2)
+        time.sleep(1)
 
 
 

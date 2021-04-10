@@ -41,7 +41,7 @@ masterServer_address = ''
 masterServer_port = 0
 
 MIN_PARTS = 5
-INC_COEF = 2
+INC_COEF = 5
 
 DISABLE_LOGGING = True
 
@@ -123,6 +123,7 @@ SERVER_ADDRESS = ('0.0.0.0',9090)
 server_socket.bind(SERVER_ADDRESS)
 
 master_server_socket = socket.socket()
+master_server_socket.settimeout(30)
 
 def connect_to_master():
     logger.info('CONNECTING TO MASTER')
@@ -133,6 +134,7 @@ def connect_to_master():
         pass
     while True:
         master_server_socket = socket.socket()
+        master_server_socket.settimeout(30)
         # Establish socket connection to the server
         try:
             master_server_socket.connect((str(masterServer_address),
