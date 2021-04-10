@@ -36,6 +36,8 @@ I don't have a lot of storage memmory on my phone, will Android_cluster.py store
 
 I want to change difficulty for cluster, what do I do? - "./PCMiner_2.4_resources/Miner_config.cfg" in that file change "requesteddiff" = NET|MEDIUM|LOW (NET is the hardest difficulty, at least that's what I have read in official PC miner)
 
+Do I start server or workers first? - Doesn't matter.
+
 # before you start program download some python libraries:
 
   py-cpuinfo (only Android_Miner.py)
