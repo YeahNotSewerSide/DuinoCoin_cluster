@@ -38,6 +38,10 @@ I want to change difficulty for cluster, what do I do? - "./PCMiner_2.4_resource
 
 Do I start server or workers first? - Doesn't matter.
 
+When I connect my PC to cluster of phones produced in 2005 it seems, that only my PC calculating hashes. - That's because of the servers algorithm, it tries to keep cluster always busy with different jobs, so when phone and PC are calculatiing the same block, PC will calculate it faster and server will stop phone's job, so all devices are calculating something, but the fastest interupts slower devices, because there is no need to continue that job on slower devices.
+
+How many devices will calculate the same block? - It depends, can be one, can be all devices in the same time, but that's ok.
+
 # before you start program download some python libraries:
 
   py-cpuinfo (only Android_Miner.py)
