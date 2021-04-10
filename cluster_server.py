@@ -41,7 +41,7 @@ masterServer_address = ''
 masterServer_port = 0
 
 MIN_PARTS = 5
-INC_COEF = 5
+INC_COEF = 0
 
 DISABLE_LOGGING = True
 
