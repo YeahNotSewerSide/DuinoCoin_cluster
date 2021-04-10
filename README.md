@@ -12,6 +12,8 @@ File cluster_server.py - is a server for your cluster, it must have folder "PCMi
 
 File Android_cluster.py - is a miner for cluster, don't forget to change server address and worker name right in the script. It doesn't need folder PCMiner_2.4_resources
 
+How many devices can I connect? - As many as you want
+
 # ToDo:
 
 Optimize job dispatching/ending, implement competing between devices doing same job
