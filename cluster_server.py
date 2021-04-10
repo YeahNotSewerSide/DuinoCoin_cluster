@@ -41,9 +41,9 @@ masterServer_address = ''
 masterServer_port = 0
 
 MIN_PARTS = 5
-INC_COEF = 0
+INC_COEF = 2
 
-DISABLE_LOGGING = False
+DISABLE_LOGGING = True
 
 logger = logging.getLogger('Cluster_Server')
 logger.setLevel(logging.DEBUG)
