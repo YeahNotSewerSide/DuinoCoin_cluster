@@ -151,7 +151,7 @@ def start_job(dispatcher,event):
         logger.debug(str(event.algorithm))
         return
 
-    EXPECTED_HASH = event.expected_hash
+    EXPECTED_HASH = event.expectedHash
     START_END = (event.start,event.end)
 
     if func == None:
