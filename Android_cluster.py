@@ -33,6 +33,9 @@ END_JOB = False
 calculation_result = [None,0,0,0]
 calculation_thread = None
 
+EXPECTED_HASH = None
+START_END = None
+
 def ducos1(
         lastBlockHash,
         expectedHash,
@@ -43,7 +46,7 @@ def ducos1(
     for ducos1xxres in range(int(start),int(end)):
         if END_JOB:
             logger.info('JOB TERMINATED')
-            calculation_result = [None,hashcount,start,end]
+            calculation_result = [None,0,0,0,None]
             return None
         ducos1xx = hashlib.sha1(
                 (str(lastBlockHash) + str(ducos1xxres)).encode('utf-8'))
@@ -54,11 +57,11 @@ def ducos1(
         if ducos1xx == expectedHash:
             END_JOB = True
             logger.debug('LEFT '+str(ducos1xxres))
-            calculation_result = [ducos1xxres, hashcount,start,end]
+            calculation_result = [ducos1xxres, hashcount,start,end,expectedHash]
             return None
     logger.info('Empty block')
     END_JOB = True
-    calculation_result = [None,hashcount,start,end]
+    calculation_result = [None,hashcount,start,end,expectedHash]
 
 def ducos1xxh(
         lastBlockHash,
@@ -70,7 +73,7 @@ def ducos1xxh(
     for ducos1xxres in range(int(start),int(end)):
         if END_JOB:
             logger.info('JOB TERMINATED')
-            calculation_result = [None,hashcount,start,end]
+            calculation_result = [None,0,0,0,None]
             return None
         ducos1xx = xxhash.xxh64(
         str(lastBlockHash) + str(ducos1xxres), seed=2811)
@@ -81,11 +84,11 @@ def ducos1xxh(
         if ducos1xx == expectedHash:
             END_JOB = True
             logger.debug('LEFT '+str(ducos1xxres))
-            calculation_result = [ducos1xxres, hashcount,start,end]
+            calculation_result = [ducos1xxres, hashcount,start,end,expectedHash]
             return None
     logger.info('Empty block')
     END_JOB = True
-    calculation_result = [None,hashcount,start,end]
+    calculation_result = [None,hashcount,start,end,expectedHash]
         
 
 def ping():
@@ -104,8 +107,8 @@ def register(dispatcher,event):
     global WORKER_NAME
 
     logger.info('Registering worker')
-    END_JOB = True
-    calculation_result = [None,0,0,0]
+    END_JOB = False
+    calculation_result = [None,0,0,0,None]
     message = {'t':'e',
             'event':'register',
             'name':WORKER_NAME}
@@ -127,6 +130,8 @@ def start_job(dispatcher,event):
     global calculation_thread
     global END_JOB
     global calculation_result
+    global EXPECTED_HASH
+    global START_END
 
     logger.info('Starting job')
 
@@ -144,12 +149,16 @@ def start_job(dispatcher,event):
     else:
         logger.warning('Algorithm not implemented')
         logger.debug(str(event.algorithm))
+        return
+
+    EXPECTED_HASH = event.expected_hash
+    START_END = (event.start,event.end)
 
     if func == None:
         return None
 
     END_JOB = False
-    calculation_result = [None,0,0,0]
+    calculation_result = [None,0,0,0,None]
 
     calculation_thread = threading.Thread(target=func,args=arguments,name='calculation thread')
     calculation_thread.start()
@@ -161,13 +170,24 @@ def start_job(dispatcher,event):
 
 def stop_job(dispatcher,event):
     '''
-    event = {"t":"e",
-            "event":"stop_job"}
+    event = {'t':'e',
+            'event':'stop_job',
+            'expected_hash':JOB[1],
+            'start_end':event.start_end,
+            'message':'another device already solved hash'}
     '''
     global END_JOB
     global calculation_result
     global calculation_thread
+    global EXPECTED_HASH
+    global START_END
 
+    if EXPECTED_HASH != event.expected_hash\
+        or event.start_end[0] != START_END[0]\
+        or event.start_end[1] != START_END[1]:
+        logger.warning('Trying to stop wrong job')
+        return
+    
     logger.info('Terminating job')
 
     END_JOB = True
@@ -177,14 +197,14 @@ def stop_job(dispatcher,event):
     except:
         pass
 
-    END_JOB = False
-    calculation_result = [None,0,0,0]
-    calculation_thread = None
+    #calculation_result = [None,0,0,0]
+    ##calculation_thread = None
 
     data = json.dumps({'t':'a',
                         'status':'ok',
                         'message':'Job terminated'})
     event.callback.sendto(data.encode('ascii'),event.address)
+
 
 def send_result():
     global calculation_result
@@ -199,11 +219,12 @@ def send_result():
     data = json.dumps({'t':'e',
                         'event':'job_done',
                         'result':calculation_result[:2],
-                        'start_end':calculation_result[2:]})
+                        'start_end':calculation_result[2:4],
+                        'expected_hash':calculation_result[4]})
 
     client_socket.sendto(data.encode('ascii'),CLUSTER_SERVER_ADDRESS)
 
-    calculation_result = [None,0,0,0]
+    #calculation_result = [None,0,0,0]
     calculation_thread = None
     END_JOB = False
     
@@ -311,6 +332,7 @@ def client():
         if END_JOB:
             if calculation_thread != None:
                 send_result()
+                event_dispatcher.clear_queue()
 
         time.sleep(2)
 

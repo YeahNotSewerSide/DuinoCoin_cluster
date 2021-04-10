@@ -43,7 +43,7 @@ masterServer_port = 0
 MIN_PARTS = 5
 INC_COEF = 0
 
-DISABLE_LOGGING = False
+DISABLE_LOGGING = True
 
 logger = logging.getLogger('Cluster_Server')
 logger.setLevel(logging.DEBUG)
@@ -93,6 +93,7 @@ class Device:
         self.name = name
         self.last_updated = time.time()
         self.busy = False
+        self.address = address
 
     def is_alive(self):
         return (time.time()-self.last_updated)<time_for_device
@@ -160,9 +161,12 @@ def register(dispatcher,event):
                                 "status":"ok",\
                                 "message":"already exists"}',
                                 event.address)
+        device.update_time()
         return None
 
+
     devices[event.address] = Device(event.name,event.address)
+    devices[event.address].update_time()
     event.callback.sendto(b'{"t":"a",\
                              "status":"ok",\
                              "message":"device added"}',
@@ -171,6 +175,7 @@ def register(dispatcher,event):
     event.dict_representation['event'] = 'job_done'
     event.dict_representation['result'] = [None,0]
     event.dict_representation['start_end'] = [0,0]
+    event.dict_representation['expected_hash'] = None
     dispatcher.add_to_queue(event)
 
     return None
@@ -205,19 +210,21 @@ HASH_COUNTER = 0
 
 
 class Job:
-    def __init__(self,device = None):
-        self.device = device
+    def __init__(self,devices = []):
+        self.devices = devices
         self.done = False
     def set_device(self,device):
-        self.device = device
-    def get_device(self):
-        return self.device
+        self.devices.append(device)
+    def get_devices(self):
+        return self.devices
     def is_done(self):
         return self.done
     def set_done(self):
         self.done = True
     def is_claimed(self):
-        return self.device == None
+        return len(self.devices)>0
+    def unclaim(self):
+        self.devices = []
 
 
 
@@ -300,6 +307,7 @@ def job_done(dispatcher,event):
             'event':'job_done',
             'result':[1,1] | ['None',1],
             'start_end':[1,1],
+            'expected_hash':'',
             'address':('127.0.0.1',1234),
             'callback':socket}
     '''
@@ -338,13 +346,33 @@ def job_done(dispatcher,event):
         HASH_COUNTER += event.result[1]
 
         recieved_start_end = tuple(event.start_end)
-        if recieved_start_end[0] == 0 and recieved_start_end[1] == 0:
+        if event.expected_hash == None:
             logger.debug('redirect from register')
         else:
-            try:
-                JOBS_TO_PROCESS[recieved_start_end].set_done()
-            except:
-                logger.error('CANT FIND BLOCK: '+str(recieved_start_end))
+            if event.expected_hash == JOB[1]:
+                logger.debug('currently running job')
+                CURRENT_JOB = None
+                try:
+                    CURRENT_JOB = JOBS_TO_PROCESS[recieved_start_end]
+                except:
+                    logger.error('CANT FIND BLOCK: '+str(recieved_start_end))
+                if CURRENT_JOB != None:
+                    logger.debug('terminating linked devices')
+                    data_dict = {'t':'e',
+                                'event':'stop_job',
+                                'expected_hash':JOB[1],
+                                'start_end':event.start_end,
+                                'message':'another device already solved hash'}
+                    data = json.dumps(data_dict).encode('ascii')
+                    CURRENT_JOB.set_done()
+                    for device in CURRENT_JOB.get_devices():
+                        if device.address != event.address:
+                            device.job_stopped()
+                            event.callback.sendto(data,device.address)
+                    CURRENT_JOB.unclaim()
+
+            else:
+                logger.debug('Old packet')
 
         job_to_send = None
         # searching for unclaimed jobs
@@ -383,7 +411,12 @@ def job_done(dispatcher,event):
         HASH_COUNTER += event.result[1]
         send_results(event.result)
         JOBS_TO_PROCESS = {}
-        data = b'{"t":"e","event":"stop_job","message":"terminating job"}'
+        data_dict = {'t':'e',
+                     'event':'stop_job',
+                     'expected_hash':JOB[1],
+                     'start_end':event.start_end,
+                     'message':'another device already solved hash'}
+        data = json.dumps(data_dict).encode('ascii')
         logger.debug('stopping workers')
         for addr,device in devices.items():
             device.job_stopped()
@@ -584,12 +617,12 @@ def server():
                                'event':'request_job',
                                'secret':JOB_START_SECRET,
                                'parts':20})
-                event_dispatcher.add_to_queue(event)
+                request_job(event_dispatcher,event)
                 event = Event({'t':'e',
                                'event':'job_start',
                                'secret':JOB_START_SECRET,
                                'callback':server_socket})
-                event_dispatcher.add_to_queue(event)
+                job_start(event_dispatcher,event)
 
 
         # cleenup devices
