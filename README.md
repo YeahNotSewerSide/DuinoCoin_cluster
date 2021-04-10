@@ -25,7 +25,7 @@ Should devices be the same for mining? - No, I tested it and optimized to mine o
 
 Does it has tips for creator? - No, it mines only for your account, if you want to support me, buy me a coffee:                https://buymeacoffee.com/ENotSewerSide.
 
-What happens if one devices shuts down and stops responding? - Nothing, server will send job of that device to other devices, and if device cant respond to server in 90 seconds, server will forget that device.
+What happens if one of devices shuts down and stops responding? - Nothing, server will send job of that device to other devices, and if device cant respond to server in 90 seconds, server will forget that device.
 
 What if I connect new device to the server rigth in the middle of calculating hash? - server will send to that device some job, it depends on what jobs have been done and what are been processed right now.
 
