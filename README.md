@@ -30,6 +30,8 @@ What are those jobs that server sends to devices? - When server receives new job
 
 Will slow devices make cluster work slower? - No, actually they will make it work faster, so the speed depends on the number of devices connected, more=faster.
 
+IS IT SAFE TO USE OVER THE INTERNET? - Not right now, it has some vulnerabilities, which I will fix later.
+
 # before you start program download some python libraries:
 
   py-cpuinfo (only Android_Miner.py)
