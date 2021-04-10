@@ -19,10 +19,10 @@ How many devices can I connect? - As many as you want
   py-cpuinfo (only Android_Miner.py)
 
   colorama (only Android_Miner.py)
-
-  requests
   
   pypresence (only Android_Miner.py)
+  
+  requests
   
   xxhash
   
