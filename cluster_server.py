@@ -43,7 +43,7 @@ masterServer_port = 0
 MIN_PARTS = 5
 INC_COEF = 0
 
-DISABLE_LOGGING = True
+DISABLE_LOGGING = False
 
 logger = logging.getLogger('Cluster_Server')
 logger.setLevel(logging.DEBUG)
@@ -225,6 +225,8 @@ class Job:
         return len(self.devices)>0
     def unclaim(self):
         self.devices = []
+    def number_of_devices(self):
+        return len(self.devices)
 
 
 
@@ -274,12 +276,14 @@ def send_results(result):
     logger.info('Sending results')
     logger.debug(str(result))
     logger.info('Hashes were checked: '+str(HASH_COUNTER))
+    if HASH_COUNTER<result[0]:
+        HASH_COUNTER = result[0]
     while True:
         try:
             master_server_socket.send(bytes(
                                     str(result[0])
                                     + ","
-                                    + str(HASH_COUNTER)
+                                    + str(HASH_COUNTER)#HASHCOUNTER
                                     + ","
                                     + "YeahNot Cluster ("
                                     + str(algorithm)
@@ -335,6 +339,8 @@ def job_done(dispatcher,event):
             event.callback.sendto(data.encode('ascii'),event.address)
             return None
 
+        device.job_stopped()
+
         if JOB == None:
             logger.info('Job is already over')
             data = b'{"t":"a",\
@@ -343,7 +349,7 @@ def job_done(dispatcher,event):
             event.callback.sendto(data,event.address)
             return
 
-        HASH_COUNTER += event.result[1]
+        
 
         recieved_start_end = tuple(event.start_end)
         if event.expected_hash == None:
@@ -354,9 +360,11 @@ def job_done(dispatcher,event):
                 CURRENT_JOB = None
                 try:
                     CURRENT_JOB = JOBS_TO_PROCESS[recieved_start_end]
+
                 except:
                     logger.error('CANT FIND BLOCK: '+str(recieved_start_end))
                 if CURRENT_JOB != None:
+                    HASH_COUNTER += event.result[1]
                     logger.debug('terminating linked devices')
                     data_dict = {'t':'e',
                                 'event':'stop_job',
@@ -366,14 +374,15 @@ def job_done(dispatcher,event):
                     data = json.dumps(data_dict).encode('ascii')
                     CURRENT_JOB.set_done()
                     for device in CURRENT_JOB.get_devices():
-                        if device.address != event.address:
+                        if device.address != event.address\
+                            and device.isbusy():
                             device.job_stopped()
                             event.callback.sendto(data,device.address)
                     CURRENT_JOB.unclaim()
 
             else:
                 logger.debug('Old packet')
-
+        
         job_to_send = None
         # searching for unclaimed jobs
         for start_end,job in JOBS_TO_PROCESS.items():
@@ -381,18 +390,30 @@ def job_done(dispatcher,event):
                 job.set_device(device)
                 job_to_send = start_end
                 break
-        # searching for claimed undone jobs
+        # searching for claimed by 1 device undone jobs
         if job_to_send == None:
             for start_end,job in JOBS_TO_PROCESS.items():
                 if not job.is_done():
-                    job.set_device(device)
                     job_to_send = start_end
-                    break
+                    if not job.number_of_devices()<2:
+                        job.set_device(device)
+                        job_to_send = start_end
+                        break
+              
+        # searching for claimed undone jobs
+        #if job_to_send == None:
+        #    for start_end,job in JOBS_TO_PROCESS.items():
+        #        if not job.is_done():
+        #            job.set_device(device)
+        #            job_to_send = start_end
+        #            break
+
 
         if job_to_send == None:
             device.job_stopped()
             logger.warning('CANT FIND FREE JOB')
             return None
+
 
         data = json.dumps({'t':'e',
                         'event':'start_job',

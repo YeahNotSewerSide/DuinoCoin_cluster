@@ -105,7 +105,7 @@ def register(dispatcher,event):
             'callback':socket}
     '''
     global WORKER_NAME
-
+    dispatcher.clear_queue()
     logger.info('Registering worker')
     END_JOB = False
     calculation_result = [None,0,0,0,None]
@@ -291,7 +291,7 @@ def client():
     logger.debug('Dispatcher initialized')
 
 
-    ping_delay = 15
+    ping_delay = 30
     last_ping = 0
 
     while True:
