@@ -26,7 +26,7 @@ What happens if one devices shuts down and stops responding? - Nothing, server w
 
 What if I connect new device to the server rigth in the middle of calculating hash? - server will send to that device some job, it depends on what jobs have been done and what are been processed right now.
 
-What are those jobs that server sends to devices? - When server receives new job wrom Duino-coin master server, it divides it on different blocks(jobs), by default it will divide on the number of connected device, to change that you can change variable in the file "cluster_server.py" "INC_COEF", so jobs from master server will be divided to len(devices)+INC_COEF.
+What are those jobs that server sends to devices? - When server receives new job wrom Duino-coin master server, it divides it on different blocks(jobs), by default it will divide on the number of connected device, to change that you can change variable in the file "cluster_server.py" "INC_COEF", so jobs from master server will be divided by len(devices)+INC_COEF.
 
 Will slow devices make cluster work slower? - No, actually they will make it work faster, so the speed depends on the number of devices connected, more=faster.
 
