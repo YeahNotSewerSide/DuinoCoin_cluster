@@ -380,7 +380,8 @@ def job_done(dispatcher,event):
                             and device.isbusy():
                             device.job_stopped()
                             event.callback.sendto(data,device.address)
-                    CURRENT_JOB.unclaim()
+                    del JOBS_TO_PROCESS[recieved_start_end]
+                    #CURRENT_JOB.unclaim()
 
             else:
                 logger.debug('Old packet')
@@ -402,13 +403,6 @@ def job_done(dispatcher,event):
                         job_to_send = start_end
                         break
               
-        # searching for claimed undone jobs
-        #if job_to_send == None:
-        #    for start_end,job in JOBS_TO_PROCESS.items():
-        #        if not job.is_done():
-        #            job.set_device(device)
-        #            job_to_send = start_end
-        #            break
 
 
         if job_to_send == None:
