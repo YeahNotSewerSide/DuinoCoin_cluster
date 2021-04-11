@@ -13,7 +13,7 @@ File cluster_server.py - is a server for your cluster, it must have folder "PCMi
 File Android_cluster.py - is a miner for cluster, don't forget to change server address and worker name right in the script(WORKER_NAME and CLUSTER_SERVER_ADDRESS). It doesn't need folder PCMiner_2.4_resources
 # ToDo:
 
-Test multithreading
+Test multithreading(probably woldn't add that)
 
 # Some questions:
 
