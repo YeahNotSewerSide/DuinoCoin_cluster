@@ -151,6 +151,13 @@ def start_job(dispatcher,event):
         logger.debug(str(event.algorithm))
         return
 
+    END_JOB = True
+
+    try:
+        calculation_thread.join()
+    except:
+        pass
+
     EXPECTED_HASH = event.expectedHash
     START_END = (event.start,event.end)
 

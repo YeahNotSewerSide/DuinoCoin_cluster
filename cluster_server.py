@@ -123,7 +123,7 @@ SERVER_ADDRESS = ('0.0.0.0',9090)
 server_socket.bind(SERVER_ADDRESS)
 
 master_server_socket = socket.socket()
-master_server_socket.settimeout(30)
+master_server_socket.settimeout(15)
 
 def connect_to_master():
     logger.info('CONNECTING TO MASTER')
@@ -134,7 +134,7 @@ def connect_to_master():
         pass
     while True:
         master_server_socket = socket.socket()
-        master_server_socket.settimeout(30)
+        master_server_socket.settimeout(15)
         # Establish socket connection to the server
         try:
             master_server_socket.connect((str(masterServer_address),
@@ -431,6 +431,12 @@ def job_done(dispatcher,event):
     
     else:
         logger.info('accepted result')
+        recieved_start_end = tuple(event.start_end)
+        CURRENT_JOB = JOBS_TO_PROCESS.get(recieved_start_end,None)
+        if event.expected_hash != JOB[1]\
+           or CURRENT_JOB == None:
+            logger.warning('STOP JOB ON WRONG JOB')
+            return
         HASH_COUNTER += event.result[1]
         send_results(event.result)
         JOBS_TO_PROCESS = {}
