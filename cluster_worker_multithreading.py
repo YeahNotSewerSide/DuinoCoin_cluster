@@ -1,0 +1,378 @@
+import hashlib
+import xxhash
+import socket
+import threading
+import multiprocessing
+import time
+import struct
+import traceback
+import logging
+import json
+
+##logger = None
+#logging.get#logger('Cluster_Client')
+##logger.setLevel(logging.DEBUG)
+
+#ch = logging.StreamHandler()
+#ch.setLevel(logging.INFO)
+
+#formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+#ch.setFormatter(formatter)
+
+##logger.addHandler(ch)
+
+WORKER_NAME = 'TEST'
+CLUSTER_SERVER_ADDRESS = ('192.168.1.2',9090)
+client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+client_socket.setblocking(False)
+
+END_JOB = False
+
+calculation_result = [None,0,0,0,None]
+calculation_thread = None
+
+EXPECTED_HASH = None
+START_END = None
+
+ping_delay = 30
+last_ping = 0
+
+def update_last_ping():
+    global last_ping
+    last_ping = time.time()
+
+def to_ping():
+    global ping_delay
+    global last_ping
+    return time.time()-last_ping>ping_delay
+
+def ducos1(
+        lastBlockHash,
+        expectedHash,
+        start,
+        end):
+    global END_JOB,calculation_result
+    hashcount = 0
+    for ducos1xxres in range(int(start),int(end)):
+        if END_JOB:
+            #logger.info('JOB TERMINATED')
+            calculation_result = [None,0,0,0,None]
+            return None
+        ducos1xx = hashlib.sha1(
+                (str(lastBlockHash) + str(ducos1xxres)).encode('utf-8'))
+        ducos1xx = ducos1xx.hexdigest()
+        # Increment hash counter for hashrate calculator
+        hashcount += 1
+        # Check if result was found
+        if ducos1xx == expectedHash:
+            END_JOB = True
+            #logger.debug('LEFT '+str(ducos1xxres))
+            calculation_result = [ducos1xxres, hashcount,start,end,expectedHash]
+            return None
+    #logger.info('Empty block')
+    END_JOB = True
+    calculation_result = [None,hashcount,start,end,expectedHash]
+
+def ducos1xxh(
+        lastBlockHash,
+        expectedHash,
+        start,
+        end):
+    global END_JOB,calculation_result
+    hashcount = 0
+    for ducos1xxres in range(int(start),int(end)):
+        if END_JOB:
+            #logger.info('JOB TERMINATED')
+            calculation_result = [None,0,0,0,None]
+            return None
+        ducos1xx = xxhash.xxh64(
+        str(lastBlockHash) + str(ducos1xxres), seed=2811)
+        ducos1xx = ducos1xx.hexdigest()
+        # Increment hash counter for hashrate calculator
+        hashcount += 1
+        # Check if result was found
+        if ducos1xx == expectedHash:
+            END_JOB = True
+            #logger.debug('LEFT '+str(ducos1xxres))
+            calculation_result = [ducos1xxres, hashcount,start,end,expectedHash]
+            return None
+    #logger.info('Empty block')
+    END_JOB = True
+    calculation_result = [None,hashcount,start,end,expectedHash]
+        
+
+def ping():
+    global client_socket,CLUSTER_SERVER_ADDRESS
+    #logger.info('Pinging master server')
+    data = b'{"t":"e","event":"ping"}'
+    client_socket.sendto(data,CLUSTER_SERVER_ADDRESS)
+
+def register(dispatcher,event):
+    '''
+    event = {'t':'e',
+            'event':'register',
+            'address':(127.0.0.1,1234),
+            'callback':socket}
+    '''
+    global WORKER_NAME
+
+    dispatcher.clear_queue()
+    #logger.info('Registering worker')
+    END_JOB = False
+    calculation_result = [None,0,0,0,None]
+    message = {'t':'e',
+            'event':'register',
+            'name':WORKER_NAME}
+    data = json.dumps(message).encode('ascii')
+    event.callback.sendto(data,event.address)
+
+def start_job(dispatcher,event):
+    '''
+    event = {'t':'e',
+             'event':'start_job',
+             'lastBlockHash':JOB[0],
+             'expectedHash':JOB[1],
+             'start':JOB_START,
+             'end':JOB_END,
+             'algorithm':algorithm,
+             'address':(),
+             'callback':socket}
+    '''
+    global calculation_thread
+    global END_JOB
+    global calculation_result
+    global EXPECTED_HASH
+    global START_END
+
+    #logger.info('Starting job')
+
+    arguments = (event.lastBlockHash,
+                 event.expectedHash,
+                 event.start,
+                 event.end)
+    func = None
+    if event.algorithm == 'XXHASH':
+        #logger.info('Using XXHASH algorithm')
+        func = ducos1xxh
+    elif event.algorithm == 'DUCO-S1':
+        #logger.info('Using DUCO-S1 algorithm')
+        func = ducos1
+    else:
+        #logger.warning('Algorithm not implemented')
+        #logger.debug(str(event.algorithm))
+        return
+
+    END_JOB = True
+
+    try:
+        calculation_thread.join()
+    except:
+        pass
+
+    EXPECTED_HASH = event.expectedHash
+    START_END = (event.start,event.end)
+
+    if func == None:
+        return None
+
+    END_JOB = False
+    calculation_result = [None,0,0,0,None]
+
+    calculation_thread = threading.Thread(target=func,args=arguments,name='calculation thread')
+    calculation_thread.start()
+
+    data = json.dumps({'t':'a',
+                        'status':'ok',
+                        'message':'Job accepted'})
+    event.callback.sendto(data.encode('ascii'),event.address)
+    update_last_ping()
+
+def stop_job(dispatcher,event):
+    '''
+    event = {'t':'e',
+            'event':'stop_job',
+            'expected_hash':JOB[1],
+            'start_end':event.start_end,
+            'message':'another device already solved hash'}
+    '''
+    global END_JOB
+    global calculation_result
+    global calculation_thread
+    global EXPECTED_HASH
+    global START_END
+
+    if EXPECTED_HASH != event.expected_hash\
+        or event.start_end[0] != START_END[0]\
+        or event.start_end[1] != START_END[1]:
+        #logger.warning('Trying to stop wrong job')
+        return
+    
+    #logger.info('Terminating job')
+
+    END_JOB = True
+
+    try:
+        calculation_thread.join()
+    except:
+        pass
+
+    #calculation_result = [None,0,0,0]
+    ##calculation_thread = None
+
+    data = json.dumps({'t':'a',
+                        'status':'ok',
+                        'message':'Job terminated'})
+    event.callback.sendto(data.encode('ascii'),event.address)
+    update_last_ping()
+
+
+def send_result():
+    global calculation_result
+    global calculation_thread
+    global END_JOB
+    global client_socket
+    global CLUSTER_SERVER_ADDRESS
+
+    #logger.info('Sending result')
+    #logger.debug(str(calculation_result))
+
+    data = json.dumps({'t':'e',
+                        'event':'job_done',
+                        'result':calculation_result[:2],
+                        'start_end':calculation_result[2:4],
+                        'expected_hash':calculation_result[4]})
+
+    client_socket.sendto(data.encode('ascii'),CLUSTER_SERVER_ADDRESS)
+
+    #calculation_result = [None,0,0,0]
+    calculation_thread = None
+    END_JOB = False
+    
+
+class Event(object):
+    def __init__(self,input:dict):
+        self.dict_representation = input
+    def __dict__(self):
+        return super(Event, self).__getattribute__('dict_representation')
+    #def event_name(self) -> str:
+    #    return self.dict_representation['event']
+    def __getattribute__(self, item):
+        # Calling the super class to avoid recursion
+        return super(Event, self).__getattribute__(item)
+    def __getattr__(self, item):
+        
+        try:
+            return super(Event, self).__getattribute__('dict_representation')[item]
+        except:
+            #logger.warning('NO SUCH ELEMENT AS '+str(item))
+            pass
+    def __str__(self):
+        return str(self.dict_representation)
+
+class Dispatcher:
+    def __init__(self):
+        self.actions = {}
+        self.queue = []
+
+    def register(self,event_name,action):
+        self.actions[event_name] = action
+    
+    def add_to_queue(self,event:Event):
+        #logger.debug('added event')
+        self.queue.append(event)
+
+    def clear_queue(self):
+        self.queue = []
+
+    def dispatch_event(self):
+        try:
+            event = self.queue.pop(0)
+        except:
+            return None
+        #logger.debug('dispatching event')
+        func = self.actions.get(event.event,None)
+        if func == None:
+            #logger.warning('NO SUCH ACTION '+event.event)
+            return None
+        return self.actions[event.event](self,event)
+
+
+
+def client():
+    global client_socket
+    global END_JOB
+    global calculation_thread
+
+    #logger.debug('Initializing dispatcher')
+    event_dispatcher = Dispatcher()
+    event_dispatcher.register('register',register)
+    event_dispatcher.register('stop_job',stop_job)
+    event_dispatcher.register('start_job',start_job)
+    #logger.debug('Dispatcher initialized')
+
+
+
+
+    while True:
+        data = None
+        try:
+            data, address = client_socket.recvfrom(1024)
+        except:
+            pass
+        if data != None:
+            data_is_ok = False
+            try:
+                message = json.loads(data.decode('ascii'))
+                data_is_ok = True
+            except:
+                pass
+                #logger.warning("can't parse packet")
+                #logger.debug(str(data))
+            if data_is_ok:
+                #logger.debug('accepted packet')
+                #logger.debug(str(message))
+                if message['t'] == 'e':
+                    message['address'] = address
+                    message['callback'] = client_socket
+                    event = Event(message)
+                    event_dispatcher.add_to_queue(event)
+                else:
+                    pass
+        
+        try:
+            event_dispatcher.dispatch_event()
+        except Exception as e:
+            pass
+            #logger.error('CANT DISPATCH EVENT')
+            #logger.debug('Traceback',exc_info=e)
+                    
+        if to_ping():
+            ping()
+            update_last_ping()
+
+        if END_JOB:
+            if calculation_thread != None:
+                send_result()
+                event_dispatcher.clear_queue()
+
+        time.sleep(0.5)
+
+
+
+
+if __name__ == '__main__':
+    THREADS = 2
+    PROCESSES = []
+    if THREADS>0:
+            #tr = traceback.format_exc()
+            #logger.warning('ERROR ACCURED',exc_info=e)
+        for i in range(1,THREADS):
+            proc = multiprocessing.Process(target=client,args=[])
+            proc.start()
+            PROCESSES.append(proc)
+        try:
+            client()
+        except Exception as e:
+            pass
+    input()
