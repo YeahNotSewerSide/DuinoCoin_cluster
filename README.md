@@ -6,7 +6,10 @@ in folder PCMiner_2.4_resources in file Miner_config.cfg write your username fro
 
 File cluster_server.py - is a server for your cluster, it must have folder "PCMiner_2.4_resources" next to it to parse info, it also must have file "Miner_config.cfg" inside, "langs.json" is not used by server(default port is 9090)
 
-File Android_cluster.py - is a miner for cluster, don't forget to change server address and worker name right in the script(WORKER_NAME and CLUSTER_SERVER_ADDRESS). It doesn't need folder PCMiner_2.4_resources
+File cluster_worker.py - is a miner for cluster, don't forget to change server address and worker name right in the script(WORKER_NAME and CLUSTER_SERVER_ADDRESS). It doesn't need folder PCMiner_2.4_resources. it works in 1 process, good for devices with 1/2 cores
+
+File cluster_worker_multiprocessing.py - I hope name of that file speaks for itself, THREADS - number of processes, by default 2, I suggets to set it 1 less than number of cores in your device, because of the operating system(unless you are using Windows/Linux/MacOs), background processes and lots of other fun stuff.
+
 # ToDo:
 
 Test multithreading(probably woldn't add that)
