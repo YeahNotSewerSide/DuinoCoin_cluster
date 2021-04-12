@@ -601,17 +601,18 @@ class Dispatcher:
     def clear_queue(self):
         self.queue = []
 
-    def dispatch_event(self):
-        try:
-            event = self.queue.pop(0)
-        except:
-            return None
-        logger.debug('dispatching event')
-        func = self.actions.get(event.event,None)
-        if func == None:
-            logger.warning('NO SUCH ACTION '+event.event)
-            return None
-        return self.actions[event.event](self,event)
+    def dispatch_event(self,count=1):
+        for i in range(count):
+            try:
+                event = self.queue.pop(0)
+            except:
+                return None
+            logger.debug('dispatching event')
+            func = self.actions.get(event.event,None)
+            if func == None:
+                logger.warning('NO SUCH ACTION '+event.event)
+                return None
+            self.actions[event.event](self,event)
 
 
 def server():
@@ -668,7 +669,7 @@ def server():
         
         # dispatching events
         try:
-            event_dispatcher.dispatch_event()
+            event_dispatcher.dispatch_event(3)
         except Exception as e:
             logger.error('CANT DISPATCH EVENT')
             logger.debug('Traceback',exc_info=e)
@@ -702,7 +703,7 @@ def server():
                     del devices[address]
                     break
         
-        time.sleep(0.5)
+        time.sleep(0.2)
 
 
 
