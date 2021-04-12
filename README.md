@@ -16,6 +16,8 @@ Test multithreading(probably woldn't add that)
 
 # Some questions:
 
+I started cluster_worker_multiprocessing.py and it writes nothing in the console! - That is because I ~~am lasy~~ decided it will be more efficient not write anything to the console.
+
 How do I change algorithm used for mining? - "PCMiner_2.4_resources/Miner_config.cfg" in that file change line "algorithm = DUCO-S1|XXHASH", by default XXHASH is used.
 
 How many devices can I connect? - As many as you want.
