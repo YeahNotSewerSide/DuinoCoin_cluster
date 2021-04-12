@@ -17,6 +17,8 @@ Test multithreading(probably woldn't add that)
 
 # Some questions:
 
+How do I change algorithm used for mining? - "PCMiner_2.4_resources/Miner_config.cfg" in that file change line "algorithm = DUCO-S1|XXHASH", by default XXHASH is used.
+
 How many devices can I connect? - As many as you want.
 
 What devices can use that scripts? - Any devices that can run python.
