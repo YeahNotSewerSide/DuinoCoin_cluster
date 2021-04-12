@@ -36,6 +36,18 @@ calculation_thread = None
 EXPECTED_HASH = None
 START_END = None
 
+ping_delay = 30
+last_ping = 0
+
+def update_last_ping():
+    global last_ping
+    last_ping = time.time()
+
+def to_ping():
+    global ping_delay
+    global last_ping
+    return time.time()-last_ping>ping_delay
+
 def ducos1(
         lastBlockHash,
         expectedHash,
@@ -105,6 +117,7 @@ def register(dispatcher,event):
             'callback':socket}
     '''
     global WORKER_NAME
+
     dispatcher.clear_queue()
     logger.info('Registering worker')
     END_JOB = False
@@ -174,6 +187,7 @@ def start_job(dispatcher,event):
                         'status':'ok',
                         'message':'Job accepted'})
     event.callback.sendto(data.encode('ascii'),event.address)
+    update_last_ping()
 
 def stop_job(dispatcher,event):
     '''
@@ -211,6 +225,7 @@ def stop_job(dispatcher,event):
                         'status':'ok',
                         'message':'Job terminated'})
     event.callback.sendto(data.encode('ascii'),event.address)
+    update_last_ping()
 
 
 def send_result():
@@ -298,8 +313,7 @@ def client():
     logger.debug('Dispatcher initialized')
 
 
-    ping_delay = 30
-    last_ping = 0
+
 
     while True:
         data = None
@@ -332,16 +346,16 @@ def client():
             logger.error('CANT DISPATCH EVENT')
             logger.debug('Traceback',exc_info=e)
                     
-        if time.time()-last_ping>=ping_delay:
+        if to_ping():
             ping()
-            last_ping = time.time()
+            update_last_ping()
 
         if END_JOB:
             if calculation_thread != None:
                 send_result()
                 event_dispatcher.clear_queue()
 
-        time.sleep(1)
+        time.sleep(0.5)
 
 
 

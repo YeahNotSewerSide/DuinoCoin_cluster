@@ -41,7 +41,7 @@ masterServer_address = ''
 masterServer_port = 0
 
 MIN_PARTS = 5
-INC_COEF = 3
+INC_COEF = 0
 
 time_for_device = 90 #Time for device to update it's aliveness
 
