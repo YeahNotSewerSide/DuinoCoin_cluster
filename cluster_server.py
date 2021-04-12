@@ -40,7 +40,7 @@ serveripfile = ("https://raw.githubusercontent.com/"
 masterServer_address = ''
 masterServer_port = 0
 
-MIN_PARTS = 5
+MIN_DIFFICULTY = 300000 #real difficulty to start dividing jobs
 INC_COEF = 0
 
 time_for_device = 90 #Time for device to update it's aliveness
@@ -64,7 +64,28 @@ ch.setFormatter(formatter)
 logger.addHandler(ch)
 
 
+def get_master_server_info():
+    global masterServer_address
+    global masterServer_port
 
+    logger.info('Getting Master server info')
+    while True:
+        try:
+            res = requests.get(serveripfile, data=None)
+            break
+        except:
+            pass
+        logger.info('getting data again')
+        time.sleep(10)
+
+    if res.status_code == 200:
+        logger.info('Master server info accepted')
+        # Read content and split into lines
+        content = (res.content.decode().splitlines())
+        masterServer_address = content[0]  # Line 1 = pool address
+        masterServer_port = content[1]  # Line 2 = pool port
+    else:
+        raise Exception('CANT GET MASTER SERVER ADDRESS')
 
 # Config loading section
 def loadConfig():
@@ -124,18 +145,18 @@ server_socket.setblocking(False)
 SERVER_ADDRESS = ('0.0.0.0',9090)
 server_socket.bind(SERVER_ADDRESS)
 
-master_server_socket = socket.socket()
+master_server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 master_server_socket.settimeout(60)
 
 def connect_to_master():
     logger.info('CONNECTING TO MASTER')
     global master_server_socket
-    try:
-        master_server_socket.close()
-    except:
-        pass
+    global masterServer_address
+    global masterServer_port
+
+    get_master_server_info()
     while True:
-        master_server_socket = socket.socket()
+        master_server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         master_server_socket.settimeout(60)
         # Establish socket connection to the server
         try:
@@ -143,7 +164,7 @@ def connect_to_master():
                                         int(masterServer_port)))
             serverVersion = master_server_socket.recv(3).decode().rstrip("\n")  # Get server version
         except Exception as e:
-            time.sleep(3)
+            #time.sleep(3)
             continue
         break
 
@@ -302,6 +323,8 @@ def send_results(result):
             
         except Exception as e:
             connect_to_master()
+            logger.warning('Giving up on that hash')
+            break
             continue
 
         if feedback == 'GOOD':
@@ -518,11 +541,16 @@ def request_job(dispatcher,event):
         logger.debug(str(job))
 
         JOBS_TO_PROCESS = {}
-        MIN_PARTS = len(devices)+INC_COEF
+        parts = len(devices)+INC_COEF
 
         JOB = job[:2]
         real_difficulty = (100*int(job[2]))
-        job_part = (real_difficulty//MIN_PARTS)
+
+        if real_difficulty <= MIN_DIFFICULTY:
+            job_part = real_difficulty
+        else:
+            job_part = (real_difficulty//parts)
+
         start = 0
         end = job_part
         while start<real_difficulty:
@@ -681,24 +709,24 @@ def server():
 if __name__ == '__main__':
     logger.info('STARTING SERVER')
     loadConfig()
-    logger.info('Getting Master server info')
-    while True:
-        try:
-            res = requests.get(serveripfile, data=None)
-            break
-        except:
-            pass
-        logger.info('getting data again')
-        time.sleep(10)
+    #logger.info('Getting Master server info')
+    #while True:
+    #    try:
+    #        res = requests.get(serveripfile, data=None)
+    #        break
+    #    except:
+    #        pass
+    #    logger.info('getting data again')
+    #    time.sleep(10)
 
-    if res.status_code == 200:
-        logger.info('Master server info accepted')
-        # Read content and split into lines
-        content = (res.content.decode().splitlines())
-        masterServer_address = content[0]  # Line 1 = pool address
-        masterServer_port = content[1]  # Line 2 = pool port
-    else:
-        raise Exception('CANT GET MASTER SERVER ADDRESS')
+    #if res.status_code == 200:
+    #    logger.info('Master server info accepted')
+    #    # Read content and split into lines
+    #    content = (res.content.decode().splitlines())
+    #    masterServer_address = content[0]  # Line 1 = pool address
+    #    masterServer_port = content[1]  # Line 2 = pool port
+    #else:
+    #    raise Exception('CANT GET MASTER SERVER ADDRESS')
     connect_to_master()
     try:
         server()
