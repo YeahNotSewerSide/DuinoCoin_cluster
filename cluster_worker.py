@@ -35,6 +35,7 @@ calculation_thread = None
 
 EXPECTED_HASH = None
 START_END = None
+JOB_WAS_TERMINATED = False
 
 ping_delay = 30
 last_ping = 0
@@ -202,21 +203,24 @@ def stop_job(dispatcher,event):
     global calculation_thread
     global EXPECTED_HASH
     global START_END
+    global JOB_WAS_TERMINATED
 
     if EXPECTED_HASH != event.expected_hash\
         or event.start_end[0] != START_END[0]\
         or event.start_end[1] != START_END[1]:
         logger.warning('Trying to stop wrong job')
         return
+
+    JOB_WAS_TERMINATED = True
     
     logger.info('Terminating job')
 
     END_JOB = True
 
-    try:
-        calculation_thread.join()
-    except:
-        pass
+    #try:
+    #    calculation_thread.join()
+    #except:
+    #    pass
 
     #calculation_result = [None,0,0,0]
     ##calculation_thread = None
@@ -234,6 +238,8 @@ def send_result():
     global END_JOB
     global client_socket
     global CLUSTER_SERVER_ADDRESS
+    global JOB_WAS_TERMINATED
+
 
     logger.info('Sending result')
     logger.debug(str(calculation_result))
@@ -304,6 +310,7 @@ def client():
     global client_socket
     global END_JOB
     global calculation_thread
+    global JOB_WAS_TERMINATED
 
     logger.debug('Initializing dispatcher')
     event_dispatcher = Dispatcher()
@@ -350,10 +357,11 @@ def client():
             ping()
             update_last_ping()
 
-        if END_JOB:
+        if END_JOB and not JOB_WAS_TERMINATED:
             if calculation_thread != None:
                 send_result()
                 event_dispatcher.clear_queue()
+            JOB_WAS_TERMINATED = False
 
         time.sleep(0.5)
 

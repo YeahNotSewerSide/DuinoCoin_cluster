@@ -146,7 +146,7 @@ SERVER_ADDRESS = ('0.0.0.0',9090)
 server_socket.bind(SERVER_ADDRESS)
 
 master_server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-master_server_socket.settimeout(60)
+master_server_socket.settimeout(15)
 
 def connect_to_master():
     logger.info('CONNECTING TO MASTER')
@@ -157,7 +157,7 @@ def connect_to_master():
     get_master_server_info()
     while True:
         master_server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        master_server_socket.settimeout(60)
+        master_server_socket.settimeout(15)
         # Establish socket connection to the server
         try:
             master_server_socket.connect((str(masterServer_address),
@@ -313,9 +313,9 @@ def send_results(result):
                                     + ","
                                     + str(HASH_COUNTER)#HASHCOUNTER
                                     + ","
-                                    + "YeahNot Cluster ("
+                                    + "YeahNotCluster("
                                     + str(algorithm)
-                                    + f") devices:{len(devices)}"
+                                    + f")"
                                     + ","
                                     + str(rigIdentifier),
                                     encoding="utf8"))
@@ -341,6 +341,8 @@ def send_results(result):
             logger.info('Hash rejected')
         break
     HASH_COUNTER = 0
+
+
 
 def job_done(dispatcher,event):
     '''
@@ -678,19 +680,21 @@ def server():
         # request job and start it
         if len(devices)>0:
             if JOB == None:
-                MIN_PARTS = len(devices)+INC_COEF
-                logger.debug('MIN_PARTS is setted to '+str(MIN_PARTS))
+                #MIN_PARTS = len(devices)+INC_COEF
+                #logger.debug('MIN_PARTS is setted to '+str(MIN_PARTS))
                 event_dispatcher.clear_queue()
                 event = Event({'t':'e',
                                'event':'request_job',
                                'secret':JOB_START_SECRET,
                                'parts':20})
-                request_job(event_dispatcher,event)
+                event_dispatcher.add_to_queue(event)
+                #request_job(event_dispatcher,event)
                 event = Event({'t':'e',
                                'event':'job_start',
                                'secret':JOB_START_SECRET,
                                'callback':server_socket})
-                job_start(event_dispatcher,event)
+                event_dispatcher.add_to_queue(event)
+                #job_start(event_dispatcher,event)
 
 
         # cleenup devices
@@ -698,12 +702,11 @@ def server():
             last_devices_cleenup = time.time()
             logger.debug('Cleaning up devices')
             for address,device in devices.items():
-                if not device.is_alive()\
-                    and not device.busy:
+                if not device.is_alive():
                     del devices[address]
-                    break
+                    #break
         
-        time.sleep(0.2)
+        time.sleep(0.1)
 
 
 

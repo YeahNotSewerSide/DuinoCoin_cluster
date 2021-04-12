@@ -9,9 +9,9 @@ import traceback
 import logging
 import json
 
-##logger = None
-#logging.get#logger('Cluster_Client')
-##logger.setLevel(logging.DEBUG)
+###logger = None
+#logging.get##logger('Cluster_Client')
+###logger.setLevel(logging.DEBUG)
 
 #ch = logging.StreamHandler()
 #ch.setLevel(logging.INFO)
@@ -20,7 +20,7 @@ import json
 
 #ch.setFormatter(formatter)
 
-##logger.addHandler(ch)
+###logger.addHandler(ch)
 
 WORKER_NAME = 'TEST'
 CLUSTER_SERVER_ADDRESS = ('192.168.1.2',9090)
@@ -34,6 +34,7 @@ calculation_thread = None
 
 EXPECTED_HASH = None
 START_END = None
+JOB_WAS_TERMINATED = False
 
 ping_delay = 30
 last_ping = 0
@@ -201,12 +202,15 @@ def stop_job(dispatcher,event):
     global calculation_thread
     global EXPECTED_HASH
     global START_END
+    global JOB_WAS_TERMINATED
 
     if EXPECTED_HASH != event.expected_hash\
         or event.start_end[0] != START_END[0]\
         or event.start_end[1] != START_END[1]:
         #logger.warning('Trying to stop wrong job')
         return
+
+    JOB_WAS_TERMINATED = True
     
     #logger.info('Terminating job')
 
@@ -233,6 +237,8 @@ def send_result():
     global END_JOB
     global client_socket
     global CLUSTER_SERVER_ADDRESS
+    global JOB_WAS_TERMINATED
+
 
     #logger.info('Sending result')
     #logger.debug(str(calculation_result))
@@ -303,6 +309,7 @@ def client():
     global client_socket
     global END_JOB
     global calculation_thread
+    global JOB_WAS_TERMINATED
 
     #logger.debug('Initializing dispatcher')
     event_dispatcher = Dispatcher()
@@ -351,10 +358,11 @@ def client():
             ping()
             update_last_ping()
 
-        if END_JOB:
+        if END_JOB and not JOB_WAS_TERMINATED:
             if calculation_thread != None:
                 send_result()
                 event_dispatcher.clear_queue()
+            JOB_WAS_TERMINATED = False
 
         time.sleep(0.5)
 
@@ -366,7 +374,7 @@ if __name__ == '__main__':
     PROCESSES = []
     if THREADS>0:
             #tr = traceback.format_exc()
-            #logger.warning('ERROR ACCURED',exc_info=e)
+            ##logger.warning('ERROR ACCURED',exc_info=e)
         for i in range(1,THREADS):
             proc = multiprocessing.Process(target=client,args=[])
             proc.start()
