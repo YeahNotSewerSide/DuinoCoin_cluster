@@ -12,7 +12,7 @@ File cluster_worker_multiprocessing.py - I hope name of that file speaks for its
 
 # ToDo:
 
-Test multithreading(probably woldn't add that)
+Write speed calculator
 
 # Some questions:
 
