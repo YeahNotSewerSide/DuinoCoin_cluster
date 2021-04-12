@@ -41,7 +41,9 @@ masterServer_address = ''
 masterServer_port = 0
 
 MIN_PARTS = 5
-INC_COEF = 0
+INC_COEF = 3
+
+time_for_device = 90 #Time for device to update it's aliveness
 
 DISABLE_LOGGING = True
 
@@ -86,7 +88,7 @@ def loadConfig():
 
 
 
-time_for_device = 90
+
 
 class Device:
     def __init__(self,name,address):
@@ -123,7 +125,7 @@ SERVER_ADDRESS = ('0.0.0.0',9090)
 server_socket.bind(SERVER_ADDRESS)
 
 master_server_socket = socket.socket()
-master_server_socket.settimeout(15)
+master_server_socket.settimeout(60)
 
 def connect_to_master():
     logger.info('CONNECTING TO MASTER')
@@ -134,13 +136,14 @@ def connect_to_master():
         pass
     while True:
         master_server_socket = socket.socket()
-        master_server_socket.settimeout(15)
+        master_server_socket.settimeout(60)
         # Establish socket connection to the server
         try:
             master_server_socket.connect((str(masterServer_address),
                                         int(masterServer_port)))
             serverVersion = master_server_socket.recv(3).decode().rstrip("\n")  # Get server version
         except Exception as e:
+            time.sleep(3)
             continue
         break
 
@@ -274,12 +277,14 @@ def send_results(result):
     global minerVersion
     global rigIdentifier
     global HASH_COUNTER
+    global devices
 
     logger.info('Sending results')
     logger.debug(str(result))
     logger.info('Hashes were checked: '+str(HASH_COUNTER))
     if HASH_COUNTER<result[0]:
         HASH_COUNTER = result[0]
+
     while True:
         try:
             master_server_socket.send(bytes(
@@ -289,22 +294,29 @@ def send_results(result):
                                     + ","
                                     + "YeahNot Cluster ("
                                     + str(algorithm)
-                                    + ") v" 
-                                    + str(minerVersion)
+                                    + f") devices:{len(devices)}"
                                     + ","
                                     + str(rigIdentifier),
                                     encoding="utf8"))
             feedback = master_server_socket.recv(8).decode().rstrip("\n")
-            break
-        except:
+            
+        except Exception as e:
             connect_to_master()
+            continue
 
-    if feedback == 'GOOD':
-        logger.info('Hash accepted')
-    elif feedback == 'BLOCK':
-        logger.info('Hash blocked')
-    else:
-        logger.info('Hash rejected')
+        if feedback == 'GOOD':
+            logger.info('Hash accepted')
+            
+        elif feedback == 'BLOCK':
+            logger.info('Hash blocked')
+            
+        elif feedback == '':
+            logger.info('Connection with master is lost')
+            connect_to_master()
+            continue
+        else:
+            logger.info('Hash rejected')
+        break
     HASH_COUNTER = 0
 
 def job_done(dispatcher,event):
@@ -462,6 +474,7 @@ def request_job(dispatcher,event):
     global requestedDiff
     global master_server_socket
     global JOBS_TO_PROCESS
+    global INC_COEF
 
     logger.info('requesting job')
     if event.secret != JOB_START_SECRET:
@@ -505,6 +518,7 @@ def request_job(dispatcher,event):
         logger.debug(str(job))
 
         JOBS_TO_PROCESS = {}
+        MIN_PARTS = len(devices)+INC_COEF
 
         JOB = job[:2]
         real_difficulty = (100*int(job[2]))
@@ -587,6 +601,8 @@ def server():
     event_dispatcher.register('request_job',request_job)
     logger.debug('Dispatcher initialized')
 
+    last_devices_cleenup = time.time()
+
     while True:
         # recieving events
         data = None
@@ -649,11 +665,14 @@ def server():
 
 
         # cleenup devices
-        for address,device in devices.items():
-            if not device.is_alive()\
-                and not device.busy:
-                del devices[address]
-                break
+        if time.time()-last_devices_cleenup>time_for_device:
+            last_devices_cleenup = time.time()
+            logger.debug('Cleaning up devices')
+            for address,device in devices.items():
+                if not device.is_alive()\
+                    and not device.busy:
+                    del devices[address]
+                    break
         
         time.sleep(0.5)
 
@@ -680,7 +699,7 @@ if __name__ == '__main__':
         masterServer_port = content[1]  # Line 2 = pool port
     else:
         raise Exception('CANT GET MASTER SERVER ADDRESS')
-
+    connect_to_master()
     try:
         server()
     except Exception as e:
