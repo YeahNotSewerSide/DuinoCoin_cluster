@@ -46,7 +46,7 @@ INC_COEF = 0
 
 time_for_device = 90 #Time for device to update it's aliveness
 
-DISABLE_LOGGING = True
+DISABLE_LOGGING = False
 
 logger = logging.getLogger('Cluster_Server')
 logger.setLevel(logging.DEBUG)
@@ -386,6 +386,70 @@ def send_results(dispatcher,result):
         break
     HASH_COUNTER = 0
 
+def get_job(dispatcher,event):
+    '''
+    event - {'t':'e',
+            'event':'get_job',
+            'address':'address',
+            'callback':'callback'}
+    '''
+    global JOB
+    global algorithm
+    global JOBS_TO_PROCESS
+    job_to_send = None
+
+    logger.info('Get job packet')
+
+    device = devices.get(event.address,None)
+    if device == None:
+        logger.warning('device is not registered')
+        event.callback.sendto(b'{"t":"e",\
+                             "event":"register",\
+                             "message":"You must register in cluster"}',
+                              event.address)
+        return None
+    if not device.is_alive():
+        logger.warning('Device '+device.name+' '+str(event.address)+' is dead')
+        data = json.dumps({'t':'e',
+                           'event':'ping'})
+        event.callback.sendto(data.encode('ascii'),event.address)
+        return None
+
+    # searching for unclaimed jobs
+    for start_end,job in JOBS_TO_PROCESS.items():
+        if not job.is_claimed() and not job.is_done():
+            job.set_device(device)
+            job_to_send = start_end
+            break
+        yield
+    # searching for claimed by 1 device undone jobs
+    if job_to_send == None:
+        for start_end,job in JOBS_TO_PROCESS.items():
+            if not job.is_done():
+                job_to_send = start_end
+                if not job.number_of_devices()<2:
+                    job.set_device(device)
+                    job_to_send = start_end
+                    break
+            yield
+              
+    if job_to_send == None:
+        device.job_stopped()
+        logger.warning('CANT FIND FREE JOB')
+        return None
+
+
+    data = json.dumps({'t':'e',
+                      'event':'start_job',
+                      'lastBlockHash':JOB[0],
+                      'expectedHash':JOB[1],
+                      'start':job_to_send[0],
+                      'end':job_to_send[1],
+                      'algorithm':algorithm})
+    logger.debug('Sending job: '+data)
+    device.job_started()
+
+    event.callback.sendto(data.encode('ascii'),event.address)
 
 
 def job_done(dispatcher,event):
@@ -469,44 +533,6 @@ def job_done(dispatcher,event):
             else:
                 logger.debug('Old packet')
         
-        job_to_send = None
-        # searching for unclaimed jobs
-        for start_end,job in JOBS_TO_PROCESS.items():
-            if not job.is_claimed() and not job.is_done():
-                job.set_device(device)
-                job_to_send = start_end
-                break
-            yield
-        # searching for claimed by 1 device undone jobs
-        if job_to_send == None:
-            for start_end,job in JOBS_TO_PROCESS.items():
-                if not job.is_done():
-                    job_to_send = start_end
-                    if not job.number_of_devices()<2:
-                        job.set_device(device)
-                        job_to_send = start_end
-                        break
-                yield
-              
-
-
-        if job_to_send == None:
-            device.job_stopped()
-            logger.warning('CANT FIND FREE JOB')
-            return None
-
-
-        data = json.dumps({'t':'e',
-                        'event':'start_job',
-                        'lastBlockHash':JOB[0],
-                        'expectedHash':JOB[1],
-                        'start':job_to_send[0],
-                        'end':job_to_send[1],
-                        'algorithm':algorithm})
-        logger.debug('Sending job: '+data)
-        device.job_started()
-
-        event.callback.sendto(data.encode('ascii'),event.address)
     
     else:
         logger.info('accepted result')
@@ -737,6 +763,7 @@ def server():
     event_dispatcher.register('request_job',request_job)
     event_dispatcher.register('clean_up_devices',clean_up_devices)
     event_dispatcher.register('connect_to_master',connect_to_master)
+    event_dispatcher.register('get_job',get_job)
     logger.debug('Dispatcher initialized')
 
     event = {'t':'e',

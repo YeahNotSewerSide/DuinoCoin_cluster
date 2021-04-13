@@ -104,7 +104,18 @@ def ducos1xxh(
     logger.info('Empty block')
     END_JOB = True
     calculation_result = [None,hashcount,start,end,expectedHash]
-        
+    
+def get_job():
+    global client_socket
+    global CLUSTER_SERVER_ADDRESS
+    global END_JOB
+
+    END_JOB = False
+
+    data = json.dumps({'t':'e',
+                        'event':'get_job'}).encode('ascii')
+    client_socket.sendto(data,CLUSTER_SERVER_ADDRESS)
+
 
 def ping(dispatcher,event):
     '''
@@ -263,6 +274,7 @@ def send_result():
 
     client_socket.sendto(data.encode('ascii'),CLUSTER_SERVER_ADDRESS)
 
+    calculation_result = [None,0,0,0,None]
     calculation_thread = None
     END_JOB = False
     
@@ -392,11 +404,13 @@ def client():
                            'address':CLUSTER_SERVER_ADDRESS})
             event_dispatcher.add_to_queue(event)
 
+
         if END_JOB:
-            if calculation_thread != None:
+            if calculation_result[4] != None:
                 send_result()
-                event_dispatcher.clear_queue()
-            JOB_WAS_TERMINATED = False
+            get_job()
+
+
 
         time.sleep(0.5)
 
