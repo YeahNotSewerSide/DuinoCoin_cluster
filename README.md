@@ -24,7 +24,7 @@ How do I change algorithm used for mining? - "PCMiner_2.4_resources/Miner_config
 
 How many devices can I connect? - As many as you want.
 
-What devices can use that scripts? - Any devices that can run python.
+What devices can use those scripts? - Any devices that can run python.
 
 Should devices be the same for mining? - No, I tested it and optimized to mine on devices with different speed efficiently.
 
