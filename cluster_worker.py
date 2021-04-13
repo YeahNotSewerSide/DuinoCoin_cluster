@@ -223,7 +223,7 @@ def stop_job(dispatcher,event):
     #    pass
 
     #calculation_result = [None,0,0,0]
-    ##calculation_thread = None
+    #calculation_thread = None
 
     data = json.dumps({'t':'a',
                         'status':'ok',
@@ -357,7 +357,7 @@ def client():
             ping()
             update_last_ping()
 
-        if END_JOB and not JOB_WAS_TERMINATED:
+        if END_JOB:
             if calculation_thread != None:
                 send_result()
                 event_dispatcher.clear_queue()

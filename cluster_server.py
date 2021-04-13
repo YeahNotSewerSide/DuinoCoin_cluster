@@ -8,6 +8,7 @@ import struct
 import select
 import traceback
 import logging
+import types
 
 # https://github.com/DoctorEenot/DuinoCoin_android_cluster
 '''
@@ -275,7 +276,7 @@ def job_start(dispatcher,event):
         logger.warning('bad secret')
         return
 
-
+    counter = 1
     for start_end,job in JOBS_TO_PROCESS.items():
         for addr,device in devices.items():
             if device.isbusy():
@@ -291,6 +292,9 @@ def job_start(dispatcher,event):
             event.callback.sendto(data.encode('ascii'),addr)
             job.set_device(device)
             break
+        if counter%2==0:
+            yield True
+        counter += 1
             
 
 def send_results(result):
@@ -430,6 +434,7 @@ def job_done(dispatcher,event):
                 job.set_device(device)
                 job_to_send = start_end
                 break
+            yield
         # searching for claimed by 1 device undone jobs
         if job_to_send == None:
             for start_end,job in JOBS_TO_PROCESS.items():
@@ -439,6 +444,7 @@ def job_done(dispatcher,event):
                         job.set_device(device)
                         job_to_send = start_end
                         break
+                yield
               
 
 
@@ -592,6 +598,7 @@ class Dispatcher:
     def __init__(self):
         self.actions = {}
         self.queue = []
+        self.active_loop = []
 
     def register(self,event_name,action):
         self.actions[event_name] = action
@@ -602,6 +609,17 @@ class Dispatcher:
 
     def clear_queue(self):
         self.queue = []
+
+    def iter_through_active_list(self):
+        counter = 0
+        while counter<len(self.active_loop):
+            try:
+                next(self.active_loop[counter])
+            except StopIteration:
+                self.active_loop.pop(counter)
+                continue
+            counter += 1
+
 
     def dispatch_event(self,count=1):
         for i in range(count):
@@ -614,7 +632,9 @@ class Dispatcher:
             if func == None:
                 logger.warning('NO SUCH ACTION '+event.event)
                 return None
-            self.actions[event.event](self,event)
+            activity = self.actions[event.event](self,event)
+            if isinstance(activity,types.GeneratorType):
+                self.active_loop.append(activity)
 
 
 def server():
@@ -675,6 +695,12 @@ def server():
         except Exception as e:
             logger.error('CANT DISPATCH EVENT')
             logger.debug('Traceback',exc_info=e)
+        try:
+            event_dispatcher.iter_through_active_list()
+        except Exception as e:
+            logger.error('CANT EXECUTE')
+            logger.debug('Traceback',exc_info=e)
+
 
 
         # request job and start it

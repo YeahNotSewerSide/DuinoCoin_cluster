@@ -358,7 +358,7 @@ def client():
             ping()
             update_last_ping()
 
-        if END_JOB and not JOB_WAS_TERMINATED:
+        if END_JOB:
             if calculation_thread != None:
                 send_result()
                 event_dispatcher.clear_queue()
