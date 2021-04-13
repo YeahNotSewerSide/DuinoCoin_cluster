@@ -12,6 +12,8 @@ File cluster_worker_multiprocessing.py - I hope name of that file speaks for its
 
 # ToDo:
 
+Fix some bugs
+
 Write speed calculator
 
 # Some questions:
