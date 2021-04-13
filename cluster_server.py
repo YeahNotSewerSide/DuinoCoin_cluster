@@ -149,7 +149,7 @@ server_socket.bind(SERVER_ADDRESS)
 master_server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 master_server_socket.settimeout(15)
 master_server_timeout = 15
-master_server_is_connected = False
+master_server_is_connected = True
 
 def connect_to_master(dispatcher,event):
     '''
