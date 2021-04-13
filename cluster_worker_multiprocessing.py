@@ -8,23 +8,14 @@ import struct
 import traceback
 import logging
 import json
+import types
 
-###logger = None
-#logging.get##logger('Cluster_Client')
-###logger.setLevel(logging.DEBUG)
 
-#ch = logging.StreamHandler()
-#ch.setLevel(logging.INFO)
-
-#formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-
-#ch.setFormatter(formatter)
-
-###logger.addHandler(ch)
 
 WORKER_NAME = 'TEST'
 CLUSTER_SERVER_ADDRESS = ('192.168.1.2',9090)
 client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+client_socket.setsockopt( socket.SOL_SOCKET, socket.SO_REUSEADDR, 1 )
 client_socket.setblocking(False)
 
 END_JOB = False
@@ -103,11 +94,17 @@ def ducos1xxh(
     calculation_result = [None,hashcount,start,end,expectedHash]
         
 
-def ping():
-    global client_socket,CLUSTER_SERVER_ADDRESS
+def ping(dispatcher,event):
+    '''
+    event - {'t':'e',
+            'event':'ping',
+            'address':(1,1)}
+    '''
+    global client_socket
+    update_last_ping()
     #logger.info('Pinging master server')
     data = b'{"t":"e","event":"ping"}'
-    client_socket.sendto(data,CLUSTER_SERVER_ADDRESS)
+    client_socket.sendto(data,event.address)
 
 def register(dispatcher,event):
     '''
@@ -166,6 +163,8 @@ def start_job(dispatcher,event):
 
     END_JOB = True
 
+    #yield
+
     try:
         calculation_thread.join()
     except:
@@ -220,9 +219,10 @@ def stop_job(dispatcher,event):
         calculation_thread.join()
     except:
         pass
+    END_JOB = False
 
     #calculation_result = [None,0,0,0]
-    ##calculation_thread = None
+    #calculation_thread = None
 
     data = json.dumps({'t':'a',
                         'status':'ok',
@@ -251,7 +251,6 @@ def send_result():
 
     client_socket.sendto(data.encode('ascii'),CLUSTER_SERVER_ADDRESS)
 
-    #calculation_result = [None,0,0,0]
     calculation_thread = None
     END_JOB = False
     
@@ -280,6 +279,7 @@ class Dispatcher:
     def __init__(self):
         self.actions = {}
         self.queue = []
+        self.active_loop = []
 
     def register(self,event_name,action):
         self.actions[event_name] = action
@@ -291,17 +291,32 @@ class Dispatcher:
     def clear_queue(self):
         self.queue = []
 
-    def dispatch_event(self):
-        try:
-            event = self.queue.pop(0)
-        except:
-            return None
-        #logger.debug('dispatching event')
-        func = self.actions.get(event.event,None)
-        if func == None:
-            #logger.warning('NO SUCH ACTION '+event.event)
-            return None
-        return self.actions[event.event](self,event)
+    def iter_through_active_list(self):
+        counter = 0
+        while counter<len(self.active_loop):
+            try:
+                next(self.active_loop[counter])
+            except StopIteration:
+                self.active_loop.pop(counter)
+                continue
+            counter += 1
+
+
+    def dispatch_event(self,count=1):
+        for i in range(count):
+            try:
+                event = self.queue.pop(0)
+            except:
+                return None
+            #logger.debug('dispatching event')
+            func = self.actions.get(event.event,None)
+            if func == None:
+                #logger.warning('NO SUCH ACTION '+event.event)
+                return None
+            activity = self.actions[event.event](self,event)
+            if isinstance(activity,types.GeneratorType):
+                self.active_loop.append(activity)
+
 
 
 
@@ -316,6 +331,7 @@ def client():
     event_dispatcher.register('register',register)
     event_dispatcher.register('stop_job',stop_job)
     event_dispatcher.register('start_job',start_job)
+    event_dispatcher.register('ping',ping)
     #logger.debug('Dispatcher initialized')
 
 
@@ -353,12 +369,21 @@ def client():
             pass
             #logger.error('CANT DISPATCH EVENT')
             #logger.debug('Traceback',exc_info=e)
+
+        try:
+            event_dispatcher.iter_through_active_list()
+        except Exception as e:
+            pass
+            #logger.error('CANT EXECUTE')
+            #logger.debug('Traceback',exc_info=e)
                     
         if to_ping():
-            ping()
-            update_last_ping()
+            event = Event({'t':'e',
+                           'event':'ping',
+                           'address':CLUSTER_SERVER_ADDRESS})
+            event_dispatcher.add_to_queue(event)
 
-        if END_JOB:
+        if END_JOB and not JOB_WAS_TERMINATED:
             if calculation_thread != None:
                 send_result()
                 event_dispatcher.clear_queue()
@@ -373,8 +398,6 @@ if __name__ == '__main__':
     THREADS = 2
     PROCESSES = []
     if THREADS>0:
-            #tr = traceback.format_exc()
-            ##logger.warning('ERROR ACCURED',exc_info=e)
         for i in range(1,THREADS):
             proc = multiprocessing.Process(target=client,args=[])
             proc.start()
