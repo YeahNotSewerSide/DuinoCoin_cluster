@@ -392,7 +392,7 @@ def client():
                            'address':CLUSTER_SERVER_ADDRESS})
             event_dispatcher.add_to_queue(event)
 
-        if END_JOB and not JOB_WAS_TERMINATED:
+        if END_JOB:
             if calculation_thread != None:
                 send_result()
                 event_dispatcher.clear_queue()
