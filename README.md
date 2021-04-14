@@ -5,7 +5,7 @@ To start it you can use any python ide, I suggest pydroid 3 or you can also use 
 
 File cluster_server.py - is a server for your cluster, it must have file "Cluster_Config.cfg" next to it to parse info (default port is 9090)
 
-File cluster_worker.py - is a miner for cluster, don't forget to change server address and worker name right in the script(WORKER_NAME and CLUSTER_SERVER_ADDRESS). It doesn't need file "Cluster_Config.cfg". it works in 1 process, good for devices with 1/2 cores
+File cluster_worker.py - is a miner for cluster, don't forget to change server address and worker name right in the script(WORKER_NAME and CLUSTER_SERVER_ADDRESS). It doesn't need file "Cluster_Config.cfg". it works in 1 process, good for devices with 1/2 cores, or on PC you can run 4 instances of that script.
 
 File cluster_worker_multiprocessing.py - I hope name of that file speaks for itself, THREADS - number of processes, by default 2, I suggets to set it 1 less than number of cores in your device, because of the operating system(unless you are using Windows/Linux/MacOs, they are pretty efficient with cpu usage managment), background processes and lots of other fun stuff. But, I mean, I am not you mum, so feel free to set to something insane, like 4!!!?!?!?!?!
 
