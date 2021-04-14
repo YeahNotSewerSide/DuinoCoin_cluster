@@ -15,7 +15,7 @@ import types
 you must have config file "Miner_config.cfg"
 
 For more details go to projects page:
-https://github.com/DoctorEenot/DuinoCoin_android_cluster
+https://github.com/DoctorEenot/DuinoCoin_cluster
 '''
 
 '''
