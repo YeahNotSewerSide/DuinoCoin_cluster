@@ -22,17 +22,18 @@ For more details go to projects page:
 https://github.com/DoctorEenot/DuinoCoin_android_cluster
 '''
 
-minerVersion = "2.4"  # Version number
-resourcesFolder = "PCMiner_" + str(minerVersion) + "_resources"
+'''
+GLOBALS:
+'''
 username = ''
-efficiency= ''
-donationlevel= ''
-debug= ''
-threadcount= ''
 requestedDiff= ''
 rigIdentifier= ''
-lang= ''
 algorithm= ''
+MIN_DIFFICULTY = 300000 #real difficulty to start dividing jobs
+INC_COEF = 0
+TIME_FOR_DEVICE = 90 #Time for device to update it's aliveness
+DISABLE_LOGGING = True
+
 config = configparser.ConfigParser()
 serveripfile = ("https://raw.githubusercontent.com/"
     + "revoxhere/"
@@ -41,19 +42,14 @@ serveripfile = ("https://raw.githubusercontent.com/"
 masterServer_address = ''
 masterServer_port = 0
 
-MIN_DIFFICULTY = 300000 #real difficulty to start dividing jobs
-INC_COEF = 0
 
-time_for_device = 90 #Time for device to update it's aliveness
-
-DISABLE_LOGGING = False
-
+'''
+LOGGER:
+'''
 logger = logging.getLogger('Cluster_Server')
 logger.setLevel(logging.DEBUG)
-# create console handler with a higher log level
 ch = logging.StreamHandler()
 ch.setLevel(logging.INFO)
-# create formatter and add it to the handlers
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 if not DISABLE_LOGGING:
     fh = logging.FileHandler('Cluster_Server.log')
@@ -61,7 +57,6 @@ if not DISABLE_LOGGING:
     fh.setFormatter(formatter)
     logger.addHandler(fh)
 ch.setFormatter(formatter)
-# add the handlers to the logger
 logger.addHandler(ch)
 
 
@@ -91,22 +86,24 @@ def get_master_server_info():
 # Config loading section
 def loadConfig():
     global username
-    global efficiency
-    global donationlevel
-    global debug
-    global threadcount
     global requestedDiff
     global rigIdentifier
-    global lang
     global algorithm
+    global MIN_DIFFICULTY
+    global INC_COEF
+    global TIME_FOR_DEVICE
+    global DISABLE_LOGGING
 
     logger.info('Loading config')
-    config.read(resourcesFolder + "/Miner_config.cfg")
-    username = config["miner"]["username"]
-    threadcount = config["miner"]["threads"]
-    requestedDiff = config["miner"]["requestedDiff"]
-    algorithm = config["miner"]["algorithm"]
-    rigIdentifier = config["miner"]["identifier"]
+    config.read('Cluster_Config.cfg')
+    username = config["cluster"]["username"]
+    requestedDiff = config["cluster"]["difficulty"] # LOW/MEDIUM/NET
+    algorithm = config["cluster"]["algorithm"] # XXHASH/DUCO-S1
+    rigIdentifier = config["cluster"]["identifier"]
+    MIN_DIFFICULTY = int(config['cluster']['MIN_DIFFICULTY'])
+    INC_COEF = int(config['cluster']['INC_COEF'])
+    TIME_FOR_DEVICE = int(config['cluster']['TIME_FOR_DEVICE'])
+    DISABLE_LOGGING = bool(config['cluster']['DISABLE_LOGGING'])
 
 
 
@@ -120,7 +117,7 @@ class Device:
         self.address = address
 
     def is_alive(self):
-        return (time.time()-self.last_updated)<time_for_device
+        return (time.time()-self.last_updated)<TIME_FOR_DEVICE
     def update_time(self):
         self.last_updated = time.time()
     def isbusy(self):
@@ -149,7 +146,7 @@ server_socket.bind(SERVER_ADDRESS)
 master_server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 master_server_socket.settimeout(15)
 master_server_timeout = 15
-master_server_is_connected = True
+master_server_is_connected = False
 
 def connect_to_master(dispatcher,event):
     '''
@@ -321,7 +318,6 @@ def job_start(dispatcher,event):
         device.job_started()
         event.callback.sendto(data.encode('ascii'),addr)
         job.set_device(device)
-        #if counter%(len(devices)//2)==0:
         counter += 1
         if counter == len(jobs):
             return
@@ -353,7 +349,7 @@ def send_results(dispatcher,result):
                                     + ","
                                     + str(HASH_COUNTER)#HASHCOUNTER
                                     + ","
-                                    + "YeahNotCluster("
+                                    + "YeahNot Cluster("
                                     + str(algorithm)
                                     + f")"
                                     + ","
@@ -753,6 +749,7 @@ def server():
     global devices
     global MIN_PARTS
     global INC_COEF
+    global TIME_FOR_DEVICE
 
     logger.debug('Initializing dispatcher')
     event_dispatcher = Dispatcher()
@@ -828,25 +825,17 @@ def server():
         # request job and start it
         if len(devices)>0 and master_server_is_connected:
             if JOB == None:
-                #MIN_PARTS = len(devices)+INC_COEF
-                #logger.debug('MIN_PARTS is setted to '+str(MIN_PARTS))
                 event_dispatcher.clear_queue()
                 event = Event({'t':'e',
                                'event':'request_job',
                                'secret':JOB_START_SECRET,
                                'parts':20})
                 event_dispatcher.add_to_queue(event)
-                #request_job(event_dispatcher,event)
-                #event = Event({'t':'e',
-                #               'event':'job_start',
-                #               'secret':JOB_START_SECRET,
-                #               'callback':server_socket})
-                #event_dispatcher.add_to_queue(event)
-                #job_start(event_dispatcher,event)
+
 
 
         # cleenup devices
-        if time.time()-last_devices_cleenup>time_for_device:
+        if time.time()-last_devices_cleenup>TIME_FOR_DEVICE:
             last_devices_cleenup = time.time()
             logger.debug('Cleaning up devices')
             event = {'t':'e',
