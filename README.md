@@ -1,7 +1,6 @@
-# DuinoCoin miner and cluster optimized for phones under OS android or any piece of junk that can run python
+# DuinoCoin miner and cluster
 
 To start it you can use any python ide, I suggest pydroid 3 or you can also use termux
-
 
 File cluster_server.py - is a server for your cluster, it must have file "Cluster_Config.cfg" next to it to parse info (default port is 9090)
 
