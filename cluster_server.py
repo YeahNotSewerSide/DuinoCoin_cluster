@@ -12,11 +12,7 @@ import types
 
 # https://github.com/DoctorEenot/DuinoCoin_android_cluster
 '''
-For the simpler usage that miner uses the same config directory as official PC miner:
-
-PCMiner_2.4_resources
-
-So in that folder (PCMiner_2.4_resources) you must have config file "Miner_config.cfg"
+you must have config file "Miner_config.cfg"
 
 For more details go to projects page:
 https://github.com/DoctorEenot/DuinoCoin_android_cluster
