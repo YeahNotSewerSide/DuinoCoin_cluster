@@ -44,25 +44,41 @@ def ducos1(
         expectedHash,
         start,
         end):
+    '''
+    Blatently stole it from:
+    https://github.com/colonelwatch/nonceMiner/blob/master/src/mine_DUCO_S1.c
+    '''
     global END_JOB,calculation_result
     hashcount = 0
-    for ducos1xxres in range(int(start),int(end)):
+
+    base_hash = hashlib.sha1(str(lastBlockHash).encode('ascii'))
+    temp_hash = None
+    cache = []
+
+    for ducos1xxres in range(start,end):
         if END_JOB:
-            #logger.info('JOB TERMINATED')
+            logger.info('JOB TERMINATED')
             calculation_result = [None,0,0,0,None]
             return None
-        ducos1xx = hashlib.sha1(
-                (str(lastBlockHash) + str(ducos1xxres)).encode('utf-8'))
-        ducos1xx = ducos1xx.hexdigest()
-        # Increment hash counter for hashrate calculator
+        if ducos1xxres<10:
+            temp_hash = base_hash.copy()
+            temp_hash.update(str(ducos1xxres).encode('ascii'))
+        elif ducos1xxres<end//10:
+            temp_hash = cache[int(ducos1xxres//10)].copy()
+            temp_hash.update(str(ducos1xxres%10).encode('ascii'))
+        else:
+            temp_hash = cache[ducos1xxres//100].copy()
+            temp_hash.update(str(ducos1xxres%100).encode('ascii'))
+        if(ducos1xxres<end//100):
+            cache.append(temp_hash)
+        ducos1xx = temp_hash.hexdigest()       
         hashcount += 1
-        # Check if result was found
         if ducos1xx == expectedHash:
             END_JOB = True
-            #logger.debug('LEFT '+str(ducos1xxres))
+            logger.debug(str(ducos1xxres))
             calculation_result = [ducos1xxres, hashcount,start,end,expectedHash]
             return None
-    #logger.info('Empty block')
+    logger.info('Empty block')
     END_JOB = True
     calculation_result = [None,hashcount,start,end,expectedHash]
 
@@ -73,23 +89,35 @@ def ducos1xxh(
         end):
     global END_JOB,calculation_result
     hashcount = 0
-    for ducos1xxres in range(int(start),int(end)):
+
+    base_hash = xxhash.xxh64(str(lastBlockHash).encode('ascii'))
+    temp_hash = None
+    cache = []
+
+    for ducos1xxres in range(start,end):
         if END_JOB:
-            #logger.info('JOB TERMINATED')
+            logger.info('JOB TERMINATED')
             calculation_result = [None,0,0,0,None]
             return None
-        ducos1xx = xxhash.xxh64(
-        str(lastBlockHash) + str(ducos1xxres), seed=2811)
-        ducos1xx = ducos1xx.hexdigest()
-        # Increment hash counter for hashrate calculator
+        if ducos1xxres<10:
+            temp_hash = base_hash.copy()
+            temp_hash.update(str(ducos1xxres).encode('ascii'))
+        elif ducos1xxres<end//10:
+            temp_hash = cache[int(ducos1xxres//10)].copy()
+            temp_hash.update(str(ducos1xxres%10).encode('ascii'))
+        else:
+            temp_hash = cache[ducos1xxres//100].copy()
+            temp_hash.update(str(ducos1xxres%100).encode('ascii'))
+        if(ducos1xxres<end//100):
+            cache.append(temp_hash)
+        ducos1xx = temp_hash.hexdigest() 
         hashcount += 1
-        # Check if result was found
         if ducos1xx == expectedHash:
             END_JOB = True
-            #logger.debug('LEFT '+str(ducos1xxres))
+            logger.debug('LEFT '+str(ducos1xxres))
             calculation_result = [ducos1xxres, hashcount,start,end,expectedHash]
             return None
-    #logger.info('Empty block')
+    logger.info('Empty block')
     END_JOB = True
     calculation_result = [None,hashcount,start,end,expectedHash]
     

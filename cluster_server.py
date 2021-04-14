@@ -12,10 +12,14 @@ import types
 
 # https://github.com/DoctorEenot/DuinoCoin_android_cluster
 '''
-you must have config file "Miner_config.cfg"
+For the simpler usage that miner uses the same config directory as official PC miner:
+
+PCMiner_2.4_resources
+
+So in that folder (PCMiner_2.4_resources) you must have config file "Miner_config.cfg"
 
 For more details go to projects page:
-https://github.com/DoctorEenot/DuinoCoin_cluster
+https://github.com/DoctorEenot/DuinoCoin_android_cluster
 '''
 
 '''
@@ -29,6 +33,7 @@ MIN_DIFFICULTY = 300000 #real difficulty to start dividing jobs
 INC_COEF = 0
 TIME_FOR_DEVICE = 90 #Time for device to update it's aliveness
 DISABLE_LOGGING = True
+PING_MASTER_SERVER = 40 # Seconds to ping master server
 
 config = configparser.ConfigParser()
 serveripfile = ("https://raw.githubusercontent.com/"
@@ -100,8 +105,6 @@ def loadConfig():
     INC_COEF = int(config['cluster']['INC_COEF'])
     TIME_FOR_DEVICE = int(config['cluster']['TIME_FOR_DEVICE'])
     DISABLE_LOGGING = bool(config['cluster']['DISABLE_LOGGING'])
-
-
 
 
 
@@ -254,6 +257,7 @@ JOB = None
 JOB_START_SECRET = 'ejnejkfnhiuhwefiy87usdf'
 JOBS_TO_PROCESS = {}
 HASH_COUNTER = 0
+JOB_STARTED_TIME = 0
 
 
 class Job:
@@ -288,13 +292,14 @@ def job_start(dispatcher,event):
     global JOB_START_SECRET
     global algorithm
     global JOBS_TO_PROCESS
+    global JOB_STARTED_TIME
 
     if event.secret != JOB_START_SECRET:
         logger.warning('bad secret')
         return
 
     logger.info('Job is starting')
-    
+    JOB_STARTED_TIME = time.time()
     
     counter = 0   
     jobs = list(JOBS_TO_PROCESS.items())
@@ -358,10 +363,8 @@ def send_results(dispatcher,result):
                      'event':'connect_to_master'}
             event = Event(event)
             dispatcher.add_to_queue(event)
-            #connect_to_master()
             logger.warning('Giving up on that hash')
             break
-            #continue
 
         if feedback == 'GOOD':
             logger.info('Hash accepted')
@@ -458,6 +461,7 @@ def job_done(dispatcher,event):
     global algorithm
     global JOBS_TO_PROCESS
     global HASH_COUNTER
+    global JOB_STARTED_TIME
 
     logger.info('job done packet')
     if (event.result[0] == 'None' \
@@ -481,7 +485,7 @@ def job_done(dispatcher,event):
         device.job_stopped()
 
         if JOB == None:
-            logger.info('Job is already over')
+            logger.debug('Job is already over')
             data = b'{"t":"a",\
                     "status":"ok",\
                     "message":"No job to send"}'
@@ -519,9 +523,6 @@ def job_done(dispatcher,event):
                             device.job_stopped()
                             event.callback.sendto(data,device.address)
                         yield
-                    #del JOBS_TO_PROCESS[recieved_start_end]
-                    #CURRENT_JOB.unclaim()
-
             else:
                 logger.debug('Old packet')
         
@@ -535,6 +536,7 @@ def job_done(dispatcher,event):
             logger.warning('STOP JOB ON WRONG JOB')
             return
         HASH_COUNTER += event.result[1]
+        logger.info('HASHRATE: '+str(HASH_COUNTER//(time.time()-JOB_STARTED_TIME))+' H/s')
         send_results(dispatcher,event.result)
         JOBS_TO_PROCESS = {}
         data_dict = {'t':'e',
@@ -608,10 +610,6 @@ def request_job(dispatcher,event):
                 master_server_is_connected = True
                 break
             except:
-                #event = {'t':'e',
-                #         'event':'connect_to_master'}
-                #event = Event(event)
-                #dispatcher.add_to_queue(event)
                 yield
                 continue
         job = job.split(",")
@@ -644,7 +642,10 @@ def request_job(dispatcher,event):
             job_part = (real_difficulty//parts)
 
         start = 0
-        end = job_part
+        if job_part == real_difficulty:
+            end = job_part+1
+        else:
+            end = job_part
         while start<real_difficulty:
             job_object = Job()
             JOBS_TO_PROCESS[(start,end)] = job_object
@@ -740,6 +741,7 @@ class Dispatcher:
                 self.active_loop.append(activity)
 
 
+
 def server():
     global server_socket
     global devices
@@ -768,6 +770,7 @@ def server():
 
 
     last_devices_cleenup = time.time()
+    last_ping_master = time.time()
 
     while True:
         # recieving events
@@ -827,6 +830,7 @@ def server():
                                'secret':JOB_START_SECRET,
                                'parts':20})
                 event_dispatcher.add_to_queue(event)
+
 
 
 
