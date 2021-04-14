@@ -8,7 +8,6 @@ import traceback
 import logging
 import json
 import types
-import numpy
 
 logger = logging.getLogger('Cluster_Client')
 logger.setLevel(logging.DEBUG)
