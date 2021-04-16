@@ -1,7 +1,6 @@
 import hashlib
 import xxhash
 import socket
-import threading
 import time
 import struct
 import traceback
@@ -11,17 +10,12 @@ import types
 
 logger = logging.getLogger('Cluster_Client')
 logger.setLevel(logging.DEBUG)
-#fh = logging.FileHandler('Cluster_Client.log')
-#fh.setLevel(logging.DEBUG)
-# create console handler with a higher log level
 ch = logging.StreamHandler()
 ch.setLevel(logging.INFO)
 # create formatter and add it to the handlers
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-#fh.setFormatter(formatter)
 ch.setFormatter(formatter)
 # add the handlers to the logger
-#logger.addHandler(fh)
 logger.addHandler(ch)
 
 WORKER_NAME = 'TEST'
@@ -41,6 +35,7 @@ JOB_WAS_TERMINATED = False
 
 ping_delay = 30
 last_ping = 0
+EFFECTIVENESS = 6 # less == more effective | 2 - is optimal minimum
 
 def update_last_ping():
     global last_ping
@@ -51,16 +46,22 @@ def to_ping():
     global last_ping
     return time.time()-last_ping>ping_delay
 
-def ducos1(
-        lastBlockHash,
-        expectedHash,
-        start,
-        end):
+def ducos1(dispatcher,event):
+    '''
+    event - {'t':'e',
+             'event':'ducos1',
+             'lastBlockHash':'',
+             'expectedHash':'',
+             'start':1,
+             'end':1}
+    '''
     global END_JOB,calculation_result
     hashcount = 0
-    base_hash = hashlib.sha1(str(lastBlockHash).encode('ascii'))
+    base_hash = hashlib.sha1(str(event.lastBlockHash).encode('ascii'))
     temp_hash = None
-    for ducos1xxres in range(int(start),int(end)):
+    counter = 0
+    counter_stop = int(event.end-event.start)//EFFECTIVENESS
+    for ducos1xxres in range(int(event.start),int(event.end)):
         if END_JOB:
             logger.info('JOB TERMINATED')
             calculation_result = [None,0,0,0,None]
@@ -71,25 +72,35 @@ def ducos1(
         # Increment hash counter for hashrate calculator
         hashcount += 1
         # Check if result was found
-        if ducos1xx == expectedHash:
+        if ducos1xx == event.expectedHash:
             END_JOB = True
-            logger.debug('LEFT '+str(ducos1xxres))
-            calculation_result = [ducos1xxres, hashcount,start,end,expectedHash]
+            logger.debug(str(ducos1xxres))
+            calculation_result = [ducos1xxres, hashcount,event.start,event.end,event.expectedHash]
             return None
+        counter += 1
+        if counter == counter_stop:
+            counter = 0
+            yield
     logger.info('Empty block')
     END_JOB = True
-    calculation_result = [None,hashcount,start,end,expectedHash]
+    calculation_result = [None,hashcount,event.start,event.end,event.expectedHash]
 
-def ducos1xxh(
-        lastBlockHash,
-        expectedHash,
-        start,
-        end):
+def ducos1xxh(dispatcher,event):
+    '''
+    event - {'t':'e',
+             'event':'ducos1xxh',
+             'lastBlockHash':'',
+             'expectedHash':'',
+             'start':1,
+             'end':1}
+    '''
     global END_JOB,calculation_result
     hashcount = 0
-    base_hash = xxhash.xxh64(str(lastBlockHash),seed=2811)
+    base_hash = xxhash.xxh64(str(event.lastBlockHash),seed=2811)
     temp_hash = None
-    for ducos1xxres in range(int(start),int(end)):
+    counter = 0
+    counter_stop = int(event.end-event.start)//EFFECTIVENESS
+    for ducos1xxres in range(int(event.start),int(event.end)):
         if END_JOB:
             logger.info('JOB TERMINATED')
             calculation_result = [None,0,0,0,None]
@@ -101,14 +112,18 @@ def ducos1xxh(
         # Increment hash counter for hashrate calculator
         hashcount += 1
         # Check if result was found
-        if ducos1xx == expectedHash:
+        if ducos1xx == event.expectedHash:
             END_JOB = True
-            logger.debug('LEFT '+str(ducos1xxres))
-            calculation_result = [ducos1xxres, hashcount,start,end,expectedHash]
+            logger.debug(str(ducos1xxres))
+            calculation_result = [ducos1xxres, hashcount,event.start,event.end,event.expectedHash]
             return None
+        counter += 1
+        if counter == counter_stop:
+            counter = 0
+            yield
     logger.info('Empty block')
     END_JOB = True
-    calculation_result = [None,hashcount,start,end,expectedHash]
+    calculation_result = [None,hashcount,event.start,event.end,event.expectedHash]
     
 def get_job():
     global client_socket
@@ -178,44 +193,48 @@ def start_job(dispatcher,event):
                  event.expectedHash,
                  event.start,
                  event.end)
-    func = None
+    event_ = None
     if event.algorithm == 'XXHASH':
         logger.info('Using XXHASH algorithm')
-        func = ducos1xxh
+        event_ = Event({'t':'e',
+             'event':'ducos1xxh',
+             'lastBlockHash':event.lastBlockHash,
+             'expectedHash':event.expectedHash,
+             'start':event.start,
+             'end':event.end})
     elif event.algorithm == 'DUCO-S1':
         logger.info('Using DUCO-S1 algorithm')
-        func = ducos1
+        event_ = Event({'t':'e',
+             'event':'ducos1',
+             'lastBlockHash':event.lastBlockHash,
+             'expectedHash':event.expectedHash,
+             'start':event.start,
+             'end':event.end})
     else:
         logger.warning('Algorithm not implemented')
         logger.debug(str(event.algorithm))
         return
 
+    dispatcher.add_to_queue(event_)
+
     END_JOB = True
-
-    #yield
-
-    try:
-        calculation_thread.join()
-    except:
-        pass
+    yield
 
     EXPECTED_HASH = event.expectedHash
     START_END = (event.start,event.end)
 
-    if func == None:
-        return None
 
     END_JOB = False
     calculation_result = [None,0,0,0,None]
 
-    calculation_thread = threading.Thread(target=func,args=arguments,name='calculation thread')
-    calculation_thread.start()
+    
 
     data = json.dumps({'t':'a',
                         'status':'ok',
                         'message':'Job accepted'})
     event.callback.sendto(data.encode('ascii'),event.address)
     update_last_ping()
+    return None
 
 def stop_job(dispatcher,event):
     '''
@@ -244,14 +263,12 @@ def stop_job(dispatcher,event):
 
     END_JOB = True
 
-    try:
-        calculation_thread.join()
-    except:
-        pass
+    yield
+    #try:
+    #    calculation_thread.join()
+    #except:
+    #    pass
     END_JOB = False
-
-    #calculation_result = [None,0,0,0]
-    #calculation_thread = None
 
     data = json.dumps({'t':'a',
                         'status':'ok',
@@ -362,10 +379,10 @@ def client():
     event_dispatcher.register('stop_job',stop_job)
     event_dispatcher.register('start_job',start_job)
     event_dispatcher.register('ping',ping)
+    event_dispatcher.register('ducos1',ducos1)
+    event_dispatcher.register('ducos1xxh',ducos1xxh)
     logger.debug('Dispatcher initialized')
 
-
-    END_JOB = True
 
     while True:
         data = None
@@ -416,9 +433,6 @@ def client():
                 send_result()
                 get_job()
 
-
-
-        time.sleep(0.5)
 
 
 
