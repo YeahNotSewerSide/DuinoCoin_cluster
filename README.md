@@ -1,4 +1,8 @@
-# DuinoCoin miner and cluster
+# DuinoCoin cluster
+
+Since there is limitation for mining devices on Duco's server, that cluster will let you use all you calculating power,
+
+even if you have already exceeded max connections per account.
 
 To start it you can use any python ide, I suggest pydroid 3 or you can also use termux
 
