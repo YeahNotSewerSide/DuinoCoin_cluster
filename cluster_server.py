@@ -217,11 +217,11 @@ def register(dispatcher,event):
                              "message":"device added"}',
                              event.address)
     
-    event.dict_representation['event'] = 'job_done'
-    event.dict_representation['result'] = [None,0]
-    event.dict_representation['start_end'] = [0,0]
-    event.dict_representation['expected_hash'] = None
-    dispatcher.add_to_queue(event)
+    event_ = Event({'t':'e',
+                   'event':'get_job',
+                   'address':event.address,
+                   'callback':event.callback})
+    dispatcher.add_to_queue(event_)
 
     return None
 
