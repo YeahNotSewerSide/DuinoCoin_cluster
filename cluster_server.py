@@ -872,10 +872,11 @@ def server():
 
         # request job and start it
         if len(devices)>0 and master_server_is_connected:
-            if time.time()-master_server_last_pinged>PING_MASTER_SERVER:
-                event = Event({'t':'e',
-                               'event':'ping_master'})
-                event_dispatcher.add_to_queue(event)
+            # Well new server doesn't like that
+            #if time.time()-master_server_last_pinged>PING_MASTER_SERVER:
+            #    event = Event({'t':'e',
+            #                   'event':'ping_master'})
+            #    event_dispatcher.add_to_queue(event)
             if JOB == None:
                 event_dispatcher.clear_queue()
                 event = Event({'t':'e',
