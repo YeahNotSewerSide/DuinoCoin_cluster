@@ -362,7 +362,8 @@ def send_results(dispatcher,result):
             logger.info('Hash blocked')
             
         elif feedback == '':
-            logger.info('Connection with master is lost')
+            logger.debug('Connection with master is lost')
+            #logger.info('Connection with master is lost')
             #connect_to_master()
             continue
         else:
