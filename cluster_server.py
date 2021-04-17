@@ -10,6 +10,11 @@ import traceback
 import logging
 import types
 
+# https://github.com/DoctorEenot/DuinoCoin_android_cluster
+'''
+For more details go to projects page:
+https://github.com/DoctorEenot/DuinoCoin_android_cluster
+'''
 
 '''
 GLOBALS:
@@ -135,6 +140,7 @@ master_server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 master_server_socket.settimeout(15)
 master_server_timeout = 15
 master_server_is_connected = False
+master_server_last_pinged = 0
 
 def connect_to_master(dispatcher,event):
     '''
@@ -228,7 +234,7 @@ def ping(dispatcher,event):
     '''
     global devices
 
-    logger.info('Ping')
+    logger.debug('Ping')
     device = devices.get(event.address,None)
     if device == None:
         event.callback.sendto(b'{"t":"e",\
@@ -341,7 +347,7 @@ def send_results(dispatcher,result):
                                     + ","
                                     + "YeahNot Cluster("
                                     + str(algorithm)
-                                    + f")"
+                                    + f") Devices:{len(devices)}"
                                     + ","
                                     + str(rigIdentifier),
                                     encoding="utf8"))
@@ -363,7 +369,6 @@ def send_results(dispatcher,result):
             
         elif feedback == '':
             logger.debug('Connection with master is lost')
-            #logger.info('Connection with master is lost')
             #connect_to_master()
             continue
         else:
@@ -591,9 +596,13 @@ def request_job(dispatcher,event):
             event = Event(event)
             dispatcher.add_to_queue(event)
             break
+
+        # make socket non-blocking
         master_server_socket.settimeout(0)
         timeout_start = time.time()
         master_server_is_connected = False
+
+        # pure implementation of timeout for socket, but with yielding back to main event loop
         while time.time()-timeout_start<master_server_timeout:
             try:
                 job = master_server_socket.recv(128).decode().rstrip("\n")
@@ -602,6 +611,19 @@ def request_job(dispatcher,event):
             except:
                 yield
                 continue
+
+        # server didn't respond in <master_server_timeout> seconds
+        if job == None:
+            master_server_is_connected = False
+            logger.warning('Couldnt recieve job from server')
+            event = {'t':'e',
+                     'event':'connect_to_master'}
+            event = Event(event)
+            dispatcher.add_to_queue(event)
+            yield
+            continue
+
+        # if server sent job
         job = job.split(",")
         if job[0] == 'BAD':
             logger.warning('GOT "BAD" PACKET IN RESPONSE')
@@ -700,6 +722,7 @@ class Dispatcher:
     
     def add_to_queue(self,event:Event):
         logger.debug('added event')
+        logger.debug(str(event.dict_representation))
         self.queue.append(event)
 
     def clear_queue(self):
@@ -732,12 +755,47 @@ class Dispatcher:
 
 
 
+def ping_master(dispatcher,event):
+    '''
+    event - {'t':'e',
+             'event':'ping_master'}
+    '''
+    global master_server_socket
+    global master_server_last_pinged
+    global master_server_is_connected
+    global master_server_timeout
+
+    return None
+
+    logger.info('Pinging master server')
+    ping_packet = b'PING'
+    master_server_last_pinged = time.time()
+    try:
+        master_server_socket.send(ping_packet)
+    except Exception as e:
+        master_server_is_connected = False
+        
+    master_server_socket.settimeout(master_server_timeout)
+    try:
+        data = master_server_socket.recv(5)
+    except Exception as e:
+        master_server_is_connected = False
+        new_event = Event({'t':'e',
+                           'event':'connect_to_master'})
+        dispatcher.add_to_queue(new_event)
+    master_server_socket.settimeout(0)
+
+
+
+
 def server():
     global server_socket
     global devices
     global MIN_PARTS
     global INC_COEF
     global TIME_FOR_DEVICE
+    global master_server_last_pinged
+    global PING_MASTER_SERVER
 
     logger.debug('Initializing dispatcher')
     event_dispatcher = Dispatcher()
@@ -749,6 +807,7 @@ def server():
     event_dispatcher.register('clean_up_devices',clean_up_devices)
     event_dispatcher.register('connect_to_master',connect_to_master)
     event_dispatcher.register('get_job',get_job)
+    event_dispatcher.register('ping_master',ping_master)
     logger.debug('Dispatcher initialized')
 
     event = {'t':'e',
@@ -813,6 +872,10 @@ def server():
 
         # request job and start it
         if len(devices)>0 and master_server_is_connected:
+            if time.time()-master_server_last_pinged>PING_MASTER_SERVER:
+                event = Event({'t':'e',
+                               'event':'ping_master'})
+                event_dispatcher.add_to_queue(event)
             if JOB == None:
                 event_dispatcher.clear_queue()
                 event = Event({'t':'e',
@@ -821,8 +884,7 @@ def server():
                                'parts':20})
                 event_dispatcher.add_to_queue(event)
 
-
-
+        
 
         # cleenup devices
         if time.time()-last_devices_cleenup>TIME_FOR_DEVICE:
