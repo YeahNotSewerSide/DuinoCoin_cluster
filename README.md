@@ -11,6 +11,8 @@ File cluster_worker.py - is a miner for cluster, don't forget to change server a
 
 File cluster_worker_multiprocessing.py - I hope name of that file speaks for itself, THREADS - number of processes, by default 2, I suggets to set it 1 less than number of cores in your device, because of the operating system(unless you are using Windows/Linux/MacOs, they are pretty efficient with cpu usage managment), background processes and lots of other fun stuff. But, I mean, I am not you mum, so feel free to set to something insane, like 4!!!?!?!?!?!
 
+File cluster_worker_nthr.py - Is a worker without threading library. All "asyncronity" is a raw implementation right in the script. When should you use it? for example on 3ds, standart python libs dont support threading and time.sleep()
+
 # ToDo:
 
 Write worker on c++
