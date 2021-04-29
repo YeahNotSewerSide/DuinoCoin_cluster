@@ -27,16 +27,7 @@ MIN_DIFFICULTY = 300000 #real difficulty to start dividing jobs
 INC_COEF = 0
 TIME_FOR_DEVICE = 90 #Time for device to update it's aliveness
 DISABLE_LOGGING = True
-PING_MASTER_SERVER = 40 # Seconds to ping master server
-
-config = configparser.ConfigParser()
-serveripfile = ("https://raw.githubusercontent.com/"
-    + "revoxhere/"
-    + "duino-coin/gh-pages/"
-    + "serverip.txt")  # Serverip file
-masterServer_address = ''
-masterServer_port = 0
-
+PING_MASTER_SERVER = 45 # Seconds to ping master server
 
 '''
 LOGGER:
@@ -46,6 +37,42 @@ logger.setLevel(logging.DEBUG)
 ch = logging.StreamHandler()
 ch.setLevel(logging.INFO)
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+# Config loading section
+def loadConfig():
+    global username
+    global requestedDiff
+    global rigIdentifier
+    global algorithm
+    global MIN_DIFFICULTY
+    global INC_COEF
+    global TIME_FOR_DEVICE
+    global DISABLE_LOGGING
+
+    logger.info('Loading config')
+    config.read('Cluster_Config.cfg')
+    username = config["cluster"]["username"]
+    requestedDiff = config["cluster"]["difficulty"] # LOW/MEDIUM/NET
+    algorithm = config["cluster"]["algorithm"] # XXHASH/DUCO-S1
+    rigIdentifier = config["cluster"]["identifier"]
+    MIN_DIFFICULTY = int(config['cluster']['MIN_DIFFICULTY'])
+    INC_COEF = int(config['cluster']['INC_COEF'])
+    TIME_FOR_DEVICE = int(config['cluster']['TIME_FOR_DEVICE'])
+    DISABLE_LOGGING = bool(config['cluster']['DISABLE_LOGGING'])
+
+config = configparser.ConfigParser()
+loadConfig()
+serveripfile = ("https://raw.githubusercontent.com/"
+    + "revoxhere/"
+    + "duino-coin/gh-pages/"
+    + "serverip.txt")  # Serverip file
+masterServer_address = ''
+masterServer_port = 0
+
+
+'''
+LOGGER FILE HANDLER:
+'''
 if not DISABLE_LOGGING:
     fh = logging.FileHandler('Cluster_Server.log')
     fh.setLevel(logging.DEBUG)
@@ -77,30 +104,6 @@ def get_master_server_info():
         masterServer_port = content[1]  # Line 2 = pool port
     else:
         raise Exception('CANT GET MASTER SERVER ADDRESS')
-
-# Config loading section
-def loadConfig():
-    global username
-    global requestedDiff
-    global rigIdentifier
-    global algorithm
-    global MIN_DIFFICULTY
-    global INC_COEF
-    global TIME_FOR_DEVICE
-    global DISABLE_LOGGING
-
-    logger.info('Loading config')
-    config.read('Cluster_Config.cfg')
-    username = config["cluster"]["username"]
-    requestedDiff = config["cluster"]["difficulty"] # LOW/MEDIUM/NET
-    algorithm = config["cluster"]["algorithm"] # XXHASH/DUCO-S1
-    rigIdentifier = config["cluster"]["identifier"]
-    MIN_DIFFICULTY = int(config['cluster']['MIN_DIFFICULTY'])
-    INC_COEF = int(config['cluster']['INC_COEF'])
-    TIME_FOR_DEVICE = int(config['cluster']['TIME_FOR_DEVICE'])
-    DISABLE_LOGGING = bool(config['cluster']['DISABLE_LOGGING'])
-
-
 
 class Device:
     def __init__(self,name,address):
@@ -137,7 +140,7 @@ SERVER_ADDRESS = ('0.0.0.0',9090)
 server_socket.bind(SERVER_ADDRESS)
 
 master_server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-master_server_socket.settimeout(15)
+master_server_socket.settimeout(0)
 master_server_timeout = 15
 master_server_is_connected = False
 master_server_last_pinged = 0
@@ -153,6 +156,7 @@ def connect_to_master(dispatcher,event):
     global masterServer_port
     global master_server_timeout
     global master_server_is_connected
+
 
     try:
         event.dict_representation['address']
@@ -487,8 +491,6 @@ def job_done(dispatcher,event):
             event.callback.sendto(data,event.address)
             return
 
-        
-
         recieved_start_end = tuple(event.start_end)
         if event.expected_hash == None:
             logger.debug('redirect from register')
@@ -764,26 +766,46 @@ def ping_master(dispatcher,event):
     global master_server_last_pinged
     global master_server_is_connected
     global master_server_timeout
+    global JOB
 
-    return None
-
-    logger.info('Pinging master server')
+    logger.debug('Pinging master server')
     ping_packet = b'PING'
     master_server_last_pinged = time.time()
+    if JOB == None:
+        return None
     try:
         master_server_socket.send(ping_packet)
     except Exception as e:
         master_server_is_connected = False
+        return False
         
-    master_server_socket.settimeout(master_server_timeout)
-    try:
-        data = master_server_socket.recv(5)
-    except Exception as e:
+    #master_server_socket.settimeout(master_server_timeout)
+    started_pinging = time.time()
+    pinged = False
+    while time.time()-started_pinging<master_server_timeout:
+        if JOB == None:
+            return None
+        try:
+            data = master_server_socket.recv(7)
+            #if data==b'Pong!':
+            #    logger.debug('Pong! packed received')
+            #    pinged = True
+            if data == '':
+                logger.warning('connection with master was closed') 
+            else:
+                pinged = True
+            #else:
+            #    logger.debug('Unexpected data received %s',data.hex())
+            break
+        except Exception as e:
+            yield
+    if not pinged:      
         master_server_is_connected = False
-        new_event = Event({'t':'e',
-                           'event':'connect_to_master'})
-        dispatcher.add_to_queue(new_event)
-    master_server_socket.settimeout(0)
+        #new_event = Event({'t':'e',
+        #                  'event':'connect_to_master'})
+        #dispatcher.add_to_queue(new_event)
+    
+    #master_server_socket.settimeout(0)
 
 
 
@@ -872,11 +894,13 @@ def server():
 
         # request job and start it
         if len(devices)>0 and master_server_is_connected:
-            # Well new server doesn't like that
-            #if time.time()-master_server_last_pinged>PING_MASTER_SERVER:
-            #    event = Event({'t':'e',
-            #                   'event':'ping_master'})
-            #    event_dispatcher.add_to_queue(event)
+            # pinging master server
+            if JOB != None:
+                if time.time()-master_server_last_pinged>=PING_MASTER_SERVER:
+                    event = Event({'t':'e',
+                                   'event':'ping_master'})
+                    event_dispatcher.add_to_queue(event)
+            # requetsing job
             if JOB == None:
                 event_dispatcher.clear_queue()
                 event = Event({'t':'e',
@@ -884,6 +908,10 @@ def server():
                                'secret':JOB_START_SECRET,
                                'parts':20})
                 event_dispatcher.add_to_queue(event)
+        #elif not master_server_is_connected:
+        #    event = Event({'t':'e',
+        #                    'event':'connect_to_master'})
+        #    event_dispatcher.add_to_queue(event)
 
         
 
@@ -902,7 +930,6 @@ def server():
 
 if __name__ == '__main__':
     logger.info('STARTING SERVER')
-    loadConfig()
 
     #connect_to_master()
     try:
