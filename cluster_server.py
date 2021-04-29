@@ -58,7 +58,8 @@ def loadConfig():
     MIN_DIFFICULTY = int(config['cluster']['MIN_DIFFICULTY'])
     INC_COEF = int(config['cluster']['INC_COEF'])
     TIME_FOR_DEVICE = int(config['cluster']['TIME_FOR_DEVICE'])
-    DISABLE_LOGGING = bool(config['cluster']['DISABLE_LOGGING'])
+    if config['cluster']['DISABLE_LOGGING']=='False':
+        DISABLE_LOGGING = False
 
 config = configparser.ConfigParser()
 loadConfig()
