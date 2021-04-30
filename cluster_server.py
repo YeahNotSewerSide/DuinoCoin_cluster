@@ -542,6 +542,7 @@ def job_done(dispatcher,event):
                      'expected_hash':JOB[1],
                      'start_end':event.start_end,
                      'message':'another device already solved hash'}
+        JOB = None
         data = json.dumps(data_dict).encode('ascii')
         logger.debug('stopping workers')
         for addr,device in devices.items():
@@ -549,7 +550,8 @@ def job_done(dispatcher,event):
             if addr != event.address:
                 event.callback.sendto(data,addr)
             yield
-        JOB = None
+        
+        
 
 
 def request_job(dispatcher,event):
@@ -787,16 +789,14 @@ def ping_master(dispatcher,event):
         if JOB == None:
             return None
         try:
-            data = master_server_socket.recv(7)
-            #if data==b'Pong!':
-            #    logger.debug('Pong! packed received')
-            #    pinged = True
-            if data == '':
+            data = master_server_socket.recv(5)
+            if data==b'Pong!':
+                logger.debug('Pong! packed received')
+                pinged = True
+            elif data == '':
                 logger.warning('connection with master was closed') 
             else:
-                pinged = True
-            #else:
-            #    logger.debug('Unexpected data received %s',data.hex())
+                logger.debug('Unexpected data received %s',data.hex())
             break
         except Exception as e:
             yield
