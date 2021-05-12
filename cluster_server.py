@@ -466,7 +466,7 @@ def job_done(dispatcher,event):
     logger.info('job done packet')
     if (event.result[0] == 'None' \
         or event.result[0] == None):
-        logger.info('Empty block')
+        logger.debug('Empty block')
         device = devices.get(event.address,None)
         if device == None:
             logger.warning('device is not registered')
