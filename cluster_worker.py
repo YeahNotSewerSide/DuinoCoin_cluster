@@ -25,7 +25,7 @@ ch.setFormatter(formatter)
 logger.addHandler(ch)
 
 WORKER_NAME = 'TEST'
-CLUSTER_SERVER_ADDRESS = ('192.168.1.2',9090)
+CLUSTER_SERVER_ADDRESS = ('127.0.0.1',9090)
 client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 client_socket.setsockopt( socket.SOL_SOCKET, socket.SO_REUSEADDR, 1 )
 client_socket.setblocking(False)

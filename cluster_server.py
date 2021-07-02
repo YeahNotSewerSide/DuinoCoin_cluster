@@ -142,9 +142,43 @@ server_socket.bind(SERVER_ADDRESS)
 
 master_server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 master_server_socket.settimeout(0)
-master_server_timeout = 15
+master_server_timeout = 30
 master_server_is_connected = False
 master_server_last_pinged = 0
+
+AVAILABLE_PORTS = [2812,2813,2814,2815,2816]
+def get_fastest_connection(server_ip:str):
+    connection_pool = []
+    available_connections = []
+    for i in range(len(AVAILABLE_PORTS)):
+        connection_pool.append(socket.socket())
+        connection_pool[i].setblocking(0)
+        try:
+            connection_pool[i].connect((server_ip, 
+                                        AVAILABLE_PORTS[i]))
+        except BlockingIOError as e:
+            pass
+    
+    ready_connections,_,__ = select.select(connection_pool,[],[])
+    
+    while True:
+        for connection in ready_connections:
+            try:
+                server_version = connection.recv(100)
+            except:
+                continue
+            if server_version == b'':
+                continue
+               
+            available_connections.append(connection)
+            connection.send(b'PING')
+         
+        ready_connections,_,__ = select.select(available_connections,[],[])
+        ready_connections[0].recv(100)
+        # python is smart enough to close all other connections
+        # I hope
+        ready_connections[0].settimeout(10)
+        return ready_connections[0],server_version
 
 def connect_to_master(dispatcher,event):
     '''
@@ -169,27 +203,13 @@ def connect_to_master(dispatcher,event):
 
     get_master_server_info()
     while True:
-        master_server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        master_server_socket.settimeout(15)
-        # Establish socket connection to the server
-        try:
-            master_server_socket.connect((str(masterServer_address),
-                                        int(masterServer_port)))
-        except Exception as e:
-            yield
-            continue
+
+        master_server_socket,server_version = get_fastest_connection(masterServer_address)
         master_server_socket.settimeout(0)
-        serverVersion = None
-        timeout_start = time.time()
-        while time.time()-timeout_start<master_server_timeout:
-            try:
-                serverVersion = master_server_socket.recv(3).decode().rstrip("\n")  # Get server version
-                master_server_is_connected = True
-                break
-            except Exception as e:
-                yield
-        if serverVersion != None\
-           and serverVersion != '':      
+
+        master_server_is_connected = True
+        if server_version != None\
+           and server_version != '':      
             break
 
 
@@ -322,7 +342,7 @@ def job_start(dispatcher,event):
         counter += 1
         if counter == len(jobs):
             return
-        yield
+        #yield
 
         
             
@@ -466,7 +486,7 @@ def job_done(dispatcher,event):
     logger.info('job done packet')
     if (event.result[0] == 'None' \
         or event.result[0] == None):
-        logger.debug('Empty block')
+        logger.info('Empty block')
         device = devices.get(event.address,None)
         if device == None:
             logger.warning('device is not registered')
@@ -534,7 +554,7 @@ def job_done(dispatcher,event):
             logger.warning('STOP JOB ON WRONG JOB')
             return
         HASH_COUNTER += event.result[1]
-        logger.info('HASHRATE: '+str(HASH_COUNTER//(time.time()-JOB_STARTED_TIME))+' H/s')
+        logger.info('HASHRATE: '+str(event.result[0]//(time.time()-JOB_STARTED_TIME))+' H/s')
         send_results(dispatcher,event.result)
         JOBS_TO_PROCESS = {}
         data_dict = {'t':'e',
@@ -625,8 +645,8 @@ def request_job(dispatcher,event):
                      'event':'connect_to_master'}
             event = Event(event)
             dispatcher.add_to_queue(event)
-            yield
-            continue
+            break
+            #continue
 
         # if server sent job
         job = job.split(",")
