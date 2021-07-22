@@ -3,8 +3,6 @@
 Since there is limitation for mining devices on Duco's server, that cluster will let you use all you calculating power,
 even if you have already exceeded max connections per account.
 
-To start it you can use any python ide, I suggest pydroid 3 or you can also use termux
-
 File cluster_server.py - is a server for your cluster, it must have file "Cluster_Config.cfg" next to it to parse info (default port is 9090)
 
 File cluster_worker.py - is a miner for cluster, don't forget to change server address and worker name right in the script(WORKER_NAME and CLUSTER_SERVER_ADDRESS). It doesn't need file "Cluster_Config.cfg". it works in 1 process, good for devices with 1/2 cores, or on PC you can run 4 instances of that script.
