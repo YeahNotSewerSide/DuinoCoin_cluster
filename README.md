@@ -27,7 +27,6 @@ What devices can use those scripts? - Any devices that can run python.
 
 Should devices be the same for mining? - No, I tested it and optimized to mine on devices with different speed efficiently.
 
-Does it has tips for creator? - No, it mines only for your account, if you want to support me, buy me a coffee:                https://buymeacoffee.com/ENotSewerSide.
 
 What happens if one of devices shuts down and stops responding? - Nothing, server will send job of that device to other devices, and if device cant respond to server in 90 seconds, server will forget that device.
 
